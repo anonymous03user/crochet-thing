@@ -1,0 +1,838 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Crochet Toolkit — Chart Generator</title>
+<meta name="theme-color" content="#2f6f6f">
+<meta name="color-scheme" content="light">
+<meta name="format-detection" content="telephone=no">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Chart">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<link rel="icon" type="image/png" href="icons/icon-192.png">
+<link rel="manifest" href="manifest.webmanifest">
+<!--
+  Crochet Toolkit · Module 1 · Image-to-Chart Generator  (mobile / installable PWA)
+  ------------------------------------------------------------------------------
+  Turn a photo into a griddable crochet chart (graphgan / single-crochet pixel / C2C) with a
+  color key and per-color stitch counts. Add it to your iPhone Home Screen to use it like an
+  app, offline. Everything runs ON your device — no account, no upload, no internet needed.
+
+  It can also read the yarn you saved in the Stash Manager (same website) to match chart colors
+  to yarn you ALREADY OWN. It only READS the stash; it never changes it.
+
+  NOTE FOR THE CROCHETER: the builder doesn't crochet. Numbers like "yards per stitch" are
+  flagged guesses you can edit — check them with a gauge swatch before buying yarn.
+-->
+<style>
+  :root{
+    --bg:#fbf7f0; --panel:#ffffff; --ink:#2e2a26; --muted:#857a6d; --line:#e7ddcf;
+    --accent:#2f6f6f; --accent-soft:#dceceb; --good:#3f7d4e; --warn:#b07b00; --bad:#b23b3b;
+    --chip:#eef1ec; --shadow:0 1px 3px rgba(60,40,20,.08), 0 6px 18px rgba(60,40,20,.06);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{font:16px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;color:var(--ink);background:var(--bg);-webkit-text-size-adjust:100%}
+  .wrap{max-width:1000px;margin:0 auto;padding:0 calc(14px + env(safe-area-inset-right)) calc(40px + env(safe-area-inset-bottom)) calc(14px + env(safe-area-inset-left))}
+  header.app{padding:calc(16px + env(safe-area-inset-top)) 0 8px;display:flex;align-items:baseline;flex-wrap:wrap}
+  header.app h1{font-size:21px;margin:0 10px 0 0;font-weight:800;letter-spacing:.2px}
+  header.app .sub{color:var(--muted);font-size:13px}
+  .muted{color:var(--muted)}
+  button{font-family:inherit}
+  .btn{border:1px solid var(--line);background:var(--panel);color:var(--ink);padding:9px 14px;border-radius:10px;font-weight:700;font-size:14px;cursor:pointer}
+  .btn:hover{border-color:var(--accent)}
+  .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  .btn.ghost{background:transparent}
+  .btn.danger{color:var(--bad);border-color:#e9c9c9}
+  .btn.small{padding:6px 10px;font-size:13px;border-radius:8px}
+  .btn[disabled]{opacity:.5;cursor:default}
+  .row{display:flex;flex-wrap:wrap;align-items:center;margin-bottom:-8px}
+  .row > *{margin:0 8px 8px 0}
+  .spacer{flex:1}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px;box-shadow:var(--shadow);margin-bottom:14px}
+  .card h2{margin:0 0 4px;font-size:16px}
+  .card h2 + .hint{margin-top:0}
+  .hint{font-size:12.5px;color:var(--muted);margin:2px 0 10px}
+  .view.hidden{display:none}
+  /* segmented control (read modes) */
+  nav.seg{display:flex;background:var(--chip);padding:5px;border-radius:12px;margin:4px 0 0}
+  nav.seg button{flex:1;border:0;background:transparent;color:var(--muted);font-weight:700;font-size:13.5px;padding:8px 6px;border-radius:9px;cursor:pointer}
+  nav.seg button + button{margin-left:6px}
+  nav.seg button.active{background:var(--panel);color:var(--ink);box-shadow:var(--shadow)}
+  /* fields */
+  .field{margin:10px 0}
+  .field > label{display:block;font-size:11px;font-weight:700;color:var(--muted);margin:0 0 4px 2px;text-transform:uppercase;letter-spacing:.4px}
+  input[type=number],input[type=text],select{width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:10px;background:#fffdf9;color:var(--ink);font-size:15px}
+  .stepper{display:flex;align-items:stretch}
+  .stepper button{width:44px;border:1px solid var(--line);background:var(--panel);font-size:18px;font-weight:800;cursor:pointer}
+  .stepper button:first-child{border-radius:10px 0 0 10px}
+  .stepper button:last-child{border-radius:0 10px 10px 0}
+  .stepper input{border-radius:0;text-align:center;border-left:0;border-right:0}
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .toggle{display:flex;align-items:center;border:1px solid var(--line);border-radius:10px;padding:8px 11px;background:#fffdf9;font-size:14px}
+  .toggle input{margin:0 8px 0 0;width:auto}
+  details{border:1px solid var(--line);border-radius:10px;padding:8px 11px;background:#fffdf9;margin-top:6px}
+  details summary{font-weight:700;font-size:14px;cursor:pointer}
+  /* chart */
+  .chartwrap{border:1px solid var(--line);border-radius:12px;overflow:auto;-webkit-overflow-scrolling:touch;background:#fff;max-height:62vh}
+  canvas#chart{display:block;image-rendering:pixelated}
+  .legendline{font-size:12.5px;color:var(--muted);margin:8px 0}
+  .followbar{position:-webkit-sticky;position:sticky;bottom:0;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px;margin-top:10px;box-shadow:var(--shadow)}
+  .followbar .read{font-size:14.5px;font-weight:600;margin:6px 0;word-break:break-word}
+  /* color key */
+  .keylist{margin-top:6px}
+  .keyrow{display:flex;align-items:flex-start;border:1px solid var(--line);border-radius:10px;padding:8px;background:#fffdf9;margin-bottom:8px}
+  .keyrow > * + *{margin-left:10px}
+  .sw-sq{width:40px;height:40px;border-radius:8px;border:1px solid rgba(0,0,0,.15);flex:0 0 auto;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:16px}
+  .keymain{flex:1;min-width:0}
+  .keymain .top{font-weight:800;font-size:14px}
+  .keymain .sub{font-size:12.5px;color:var(--muted)}
+  .badge{display:inline-block;font-size:11px;font-weight:800;padding:1px 7px;border-radius:999px;margin-left:6px}
+  .badge.great{background:#e7f1e9;color:var(--good)}
+  .badge.close{background:#fbf0d8;color:var(--warn)}
+  .badge.far{background:#fae3e0;color:var(--bad)}
+  .keyrow select{margin-top:6px;font-size:13px;padding:6px 8px}
+  /* banners / dialogs / toast (reused, older-iOS-safe) */
+  .banner{border-radius:10px;padding:10px 12px;margin:0 0 12px;font-size:14px;display:flex;align-items:center}
+  .banner > * + *{margin-left:10px}
+  .banner.warn{background:#fff4d6;border:1px solid #ecd496;color:#705600}
+  .banner.bad{background:#fdeaea;border:1px solid #edc4c4;color:#7d2a2a}
+  .assumptions{font-size:12px;color:var(--muted);background:var(--accent-soft);border:1px solid #c2dcda;border-radius:10px;padding:10px 12px;margin-top:6px}
+  .assumptions b{color:var(--accent)}
+  .steps{margin:0;padding-left:20px;font-size:14px}
+  .steps li{margin:0 0 6px}
+  .testline{font-size:13.5px;padding:4px 0;border-bottom:1px dashed var(--line)}
+  .testline .ok{color:var(--good);font-weight:800}
+  .testline .no{color:var(--bad);font-weight:800}
+  #dialog{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(30,40,40,.5);display:flex;align-items:center;justify-content:center;z-index:90;padding:24px}
+  #dialog.hidden{display:none}
+  .dialog-card{background:var(--bg);width:100%;max-width:380px;border-radius:16px;padding:18px;box-shadow:0 10px 40px rgba(0,0,0,.3)}
+  .dialog-msg{font-size:15px;margin-bottom:16px;line-height:1.45}
+  .dialog-actions{display:flex;justify-content:flex-end}
+  .dialog-actions > * + *{margin-left:8px}
+  .dialog-actions.col{display:block}
+  .dialog-actions.col > *{display:block;width:100%;margin:0 0 8px}
+  #modal{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(30,40,40,.45);display:flex;align-items:flex-end;justify-content:center;z-index:50}
+  #modal.hidden{display:none}
+  .modal-card{background:var(--bg);width:100%;max-width:640px;max-height:92vh;overflow:auto;-webkit-overflow-scrolling:touch;border-radius:18px 18px 0 0;box-shadow:0 -8px 30px rgba(0,0,0,.2)}
+  @media(min-width:620px){#modal{align-items:center}.modal-card{border-radius:18px}}
+  .modal-head{position:-webkit-sticky;position:sticky;top:0;background:var(--bg);display:flex;align-items:center;padding:14px 16px;border-bottom:1px solid var(--line);z-index:2}
+  .modal-head h2{margin:0;font-size:18px;flex:1}
+  .modal-head > * + *{margin-left:10px}
+  .modal-body{padding:14px 16px calc(16px + env(safe-area-inset-bottom))}
+  .modal-body img.exported{max-width:100%;border:1px solid var(--line);border-radius:8px}
+  textarea.mono{width:100%;min-height:120px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:11px;border:1px solid var(--line);border-radius:10px;padding:10px;background:#fffdf9}
+  #toast{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);background:#26302e;color:#fff;padding:11px 16px;border-radius:10px;font-size:14px;box-shadow:0 6px 20px rgba(0,0,0,.25);z-index:80;max-width:90vw;text-align:center}
+  #toast.hidden{display:none}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="app">
+    <h1>🧶 Chart Generator</h1>
+    <span class="sub">Crochet Toolkit · photo → griddable chart</span>
+  </header>
+
+  <div id="banner-area"></div>
+
+  <!-- 1. Pick a photo -->
+  <div class="card">
+    <h2>1 · Pick a photo</h2>
+    <div class="hint">Choose or take a photo. It stays on your device — nothing is uploaded.</div>
+    <div class="row">
+      <button class="btn primary" data-action="pick">📷 Choose / take photo</button>
+      <button class="btn" data-action="sample">Load sample image</button>
+      <button class="btn ghost" data-action="selftest">Run self-test</button>
+    </div>
+    <input type="file" id="file" accept="image/*" capture="environment" style="display:none">
+    <div id="selftest-out"></div>
+  </div>
+
+  <!-- 2. Settings -->
+  <div class="card view hidden" id="settings-card">
+    <h2>2 · Settings</h2>
+    <div class="two">
+      <div class="field"><label>Width (stitches)</label>
+        <div class="stepper"><button data-action="w-" type="button">−</button><input id="f-width" type="number" min="10" max="120" value="50"><button data-action="w+" type="button">+</button></div>
+      </div>
+      <div class="field"><label>Colors</label>
+        <div class="stepper"><button data-action="k-" type="button">−</button><input id="f-colors" type="number" min="2" max="16" value="6"><button data-action="k+" type="button">+</button></div>
+      </div>
+    </div>
+    <div id="size-hint" class="hint"></div>
+    <div class="field"><label>Chart style (how you read it)</label>
+      <nav class="seg" id="mode-seg">
+        <button data-mode="graphgan" class="active">Graphgan / tapestry</button>
+        <button data-mode="pixel">Single-crochet</button>
+        <button data-mode="c2c">C2C (beta)</button>
+      </nav>
+      <div id="mode-help" class="hint" style="margin-top:8px"></div>
+    </div>
+    <div class="toggle"><label style="margin:0;text-transform:none;font-weight:600;font-size:14px"><input type="checkbox" id="f-aspect"> Tapestry stitches are wider than tall (stretch height ×1.3) <span class="muted">— please double-check</span></label></div>
+    <div class="field"><label>Match colors to</label>
+      <select id="f-source">
+        <option value="both">Closest of my stash + a basic palette</option>
+        <option value="stash">Only yarn I own (Stash Manager)</option>
+        <option value="builtin">A basic built-in palette</option>
+      </select>
+      <div id="stash-note" class="hint"></div>
+    </div>
+    <div class="row">
+      <label class="toggle" style="flex:1"><input type="checkbox" id="f-avoid"> Don't reuse the same yarn twice</label>
+      <label class="toggle" style="flex:1"><input type="checkbox" id="f-symbols"> Show letters (for B&amp;W)</label>
+    </div>
+    <details>
+      <summary>Yarn-amount estimate options <span class="muted">(assumptions — verify)</span></summary>
+      <div class="two" style="margin-top:8px">
+        <div class="field"><label>Yards per stitch (override)</label><input id="f-ypstitch" type="number" min="0" step="0.01" placeholder="auto by weight"></div>
+        <div class="field"><label>Waste allowance %</label><input id="f-waste" type="number" min="0" max="100" value="15"></div>
+      </div>
+      <div class="hint">"Auto by weight" uses a flagged guess table (lace .05 … worsted .13 … super-bulky .25 yd per single crochet). Enter your own swatched number to be accurate.</div>
+    </details>
+    <div class="row" style="margin-top:12px"><button class="btn primary" data-action="generate">Generate chart</button></div>
+  </div>
+
+  <!-- 3. Result -->
+  <div class="card view hidden" id="result-card">
+    <h2>3 · Your chart</h2>
+    <div id="result-summary" class="hint"></div>
+    <div class="row" style="margin-bottom:8px">
+      <button class="btn small" data-action="zoom-">− zoom</button>
+      <button class="btn small" data-action="zoom+">+ zoom</button>
+      <span class="spacer"></span>
+      <button class="btn small" data-action="follow">▶ Follow mode</button>
+      <button class="btn small" data-action="export">⬆ Export / Print</button>
+    </div>
+    <div id="legend" class="legendline"></div>
+    <div class="chartwrap"><canvas id="chart" width="10" height="10"></canvas></div>
+    <div id="followbar"></div>
+  </div>
+
+  <!-- 4. Color key -->
+  <div class="card view hidden" id="key-card">
+    <h2>4 · Color key &amp; yarn</h2>
+    <div id="estimate-banner" class="assumptions">These yarn amounts are <b>estimates</b> — verify with a gauge swatch before buying. Tap the options in step&nbsp;2 to enter your own yards-per-stitch.</div>
+    <div id="keylist" class="keylist"></div>
+  </div>
+
+  <!-- install + assumptions -->
+  <div class="card">
+    <h2>📲 Use it as an app</h2>
+    <div id="install-body"></div>
+    <div class="assumptions" style="margin-top:10px"><b>For the crocheter:</b> the builder doesn't crochet — please sanity-check these defaults: chart read top-to-bottom with <b>row 1 at the bottom</b>; graphgan/tapestry rows alternate direction (odd rows right→left, even rows left→right); <b>C2C mode is beta</b> (diagonal reading) — confirm before relying on it; yards-per-stitch and the 15% waste are guesses you can edit; color-match quality is judged by a rough color-distance rule. Final color choice should be checked against real yarn in good light.</div>
+  </div>
+</div>
+
+<div id="modal" class="hidden"><div class="modal-card"><div id="modal-inner"></div></div></div>
+<div id="dialog" class="hidden"><div class="dialog-card"></div></div>
+<div id="toast" class="hidden"></div>
+
+<script>
+"use strict";
+/* ==========================================================================
+   PART 1 — COLOR MATH (the learning core)
+   RGB <-> CIELAB, and perceptual distance. LAB matters because equal numeric
+   steps in LAB look like equal color steps to the eye (RGB doesn't).
+   ========================================================================== */
+// sRGB(0-255 int) -> linear light, via a 256-entry lookup table (fast + exact for integer input).
+var SRGB_LUT = (function(){ var a=new Float64Array(256); for(var i=0;i<256;i++){ var c=i/255; a[i]= c<=0.04045 ? c/12.92 : Math.pow((c+0.055)/1.055, 2.4); } return a; })();
+function linearToSrgb(c){ c = c<=0.0031308 ? 12.92*c : 1.055*Math.pow(c,1/2.4)-0.055; var v=Math.round(c*255); return v<0?0:(v>255?255:v); }
+function f_lab(t){ return t>0.008856451679 ? Math.cbrt(t) : (7.787037*t + 0.137931034); }
+function fi_lab(t){ var t3=t*t*t; return t3>0.008856451679 ? t3 : (t-0.137931034)/7.787037; }
+var Xn=0.95047, Yn=1.0, Zn=1.08883;
+function rgbToLab(r,g,b){
+  var rl=SRGB_LUT[r], gl=SRGB_LUT[g], bl=SRGB_LUT[b];
+  var x=(rl*0.4124564+gl*0.3575761+bl*0.1804375)/Xn;
+  var y=(rl*0.2126729+gl*0.7151522+bl*0.0721750)/Yn;
+  var z=(rl*0.0193339+gl*0.1191920+bl*0.9503041)/Zn;
+  var fx=f_lab(x), fy=f_lab(y), fz=f_lab(z);
+  return { L:116*fy-16, a:500*(fx-fy), b:200*(fy-fz) };
+}
+function labToRgb(lab){
+  var fy=(lab.L+16)/116, fx=fy+lab.a/500, fz=fy-lab.b/200;
+  var x=fi_lab(fx)*Xn, y=fi_lab(fy)*Yn, z=fi_lab(fz)*Zn;
+  var rl= x*3.2404542 + y*-1.5371385 + z*-0.4985314;
+  var gl= x*-0.9692660 + y*1.8760108 + z*0.0415560;
+  var bl= x*0.0556434 + y*-0.2040259 + z*1.0572252;
+  return { r:linearToSrgb(rl), g:linearToSrgb(gl), b:linearToSrgb(bl) };
+}
+// squared CIE76 distance — cheap and good enough; real "deltaE" is its square root.
+function dist2(p,q){ var dl=p.L-q.L, da=p.a-q.a, db=p.b-q.b; return dl*dl+da*da+db*db; }
+function deltaE(p,q){ return Math.sqrt(dist2(p,q)); }
+function nearestColor(lab, labs){ var best=0,bd=Infinity; for(var i=0;i<labs.length;i++){ var d=dist2(lab,labs[i]); if(d<bd){bd=d;best=i;} } return best; }
+function rgbHex(c){ return '#'+[c.r,c.g,c.b].map(function(v){ return ('0'+v.toString(16)).slice(-2); }).join(''); }
+function hexToRgb(h){ if(typeof h!=='string') return null; var s=h.trim(); if(s.charAt(0)!=='#') s='#'+s; if(/^#[0-9a-fA-F]{3}$/.test(s)) s='#'+s[1]+s[1]+s[2]+s[2]+s[3]+s[3]; if(!/^#[0-9a-fA-F]{6}$/.test(s)) return null; return { r:parseInt(s.substr(1,2),16), g:parseInt(s.substr(3,2),16), b:parseInt(s.substr(5,2),16) }; }
+
+/* ==========================================================================
+   PART 2 — DETERMINISM HELPERS (so the same photo+settings = the same chart)
+   ========================================================================== */
+function mulberry32(seed){ var a=seed>>>0; return function(){ a|=0; a=a+0x6D2B79F5|0; var t=Math.imul(a^a>>>15,1|a); t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; }; }
+function hashGrid(grid, width, k, restart){
+  var h=2166136261>>>0;
+  for(var y=0;y<grid.length;y++){ var row=grid[y]; for(var x=0;x<row.length;x++){ var c=row[x];
+    h=(h^c.r)>>>0; h=Math.imul(h,16777619)>>>0; h=(h^c.g)>>>0; h=Math.imul(h,16777619)>>>0; h=(h^c.b)>>>0; h=Math.imul(h,16777619)>>>0; } }
+  h=(h^width)>>>0; h=Math.imul(h,16777619)>>>0; h=(h^k)>>>0; h=Math.imul(h,16777619)>>>0; h=(h^restart)>>>0; return h>>>0;
+}
+
+/* ==========================================================================
+   PART 3 — IMAGE -> GRID
+   ========================================================================== */
+// Load a chosen file into ImageData, pre-shrunk for phone memory, transparency over white.
+function loadImageToImageData(file){
+  return new Promise(function(resolve,reject){
+    var url; try{ url=URL.createObjectURL(file); }catch(e){ reject(e); return; }
+    var img=new Image();
+    img.onload=function(){
+      try{
+        var w=img.naturalWidth||img.width, h=img.naturalHeight||img.height;
+        if(!w||!h){ URL.revokeObjectURL(url); reject(new Error('That image looked empty.')); return; }
+        var MAX=1000, scale=Math.min(1, MAX/Math.max(w,h));
+        var cw=Math.max(1,Math.round(w*scale)), ch=Math.max(1,Math.round(h*scale));
+        var c=document.createElement('canvas'); c.width=cw; c.height=ch;
+        var ctx=c.getContext('2d'); ctx.fillStyle='#ffffff'; ctx.fillRect(0,0,cw,ch); ctx.drawImage(img,0,0,cw,ch);
+        var data=ctx.getImageData(0,0,cw,ch);
+        URL.revokeObjectURL(url); resolve(data);
+      }catch(e){ try{URL.revokeObjectURL(url);}catch(_){} reject(e); }
+    };
+    img.onerror=function(){ try{URL.revokeObjectURL(url);}catch(_){} reject(new Error('Could not read that image.')); };
+    img.src=url;
+  });
+}
+var MAX_CELLS=12000;
+// Area-average (box) downscale in LINEAR light (avoids the "averages come out too dark" bug).
+function downscaleToGrid(imageData, widthStitches, stitchAspect){
+  var sw=imageData.width, sh=imageData.height, src=imageData.data;
+  var cols=Math.max(1, widthStitches|0);
+  var rows=Math.max(1, Math.round(widthStitches * (sh/sw) * stitchAspect));
+  var reduced=false;
+  if(cols*rows>MAX_CELLS){ rows=Math.max(1, Math.floor(MAX_CELLS/cols)); reduced=true; }
+  var grid=[];
+  for(var gy=0; gy<rows; gy++){
+    var y0=Math.floor(gy*sh/rows), y1=Math.max(y0+1, Math.floor((gy+1)*sh/rows));
+    var rowArr=[];
+    for(var gx=0; gx<cols; gx++){
+      var x0=Math.floor(gx*sw/cols), x1=Math.max(x0+1, Math.floor((gx+1)*sw/cols));
+      var lr=0,lg=0,lb=0,n=0;
+      for(var y=y0;y<y1;y++){ var o=(y*sw+x0)*4; for(var x=x0;x<x1;x++){
+        var a=src[o+3]/255;
+        lr += a*SRGB_LUT[src[o]]   + (1-a); lg += a*SRGB_LUT[src[o+1]] + (1-a); lb += a*SRGB_LUT[src[o+2]] + (1-a);
+        n++; o+=4;
+      } }
+      var R=linearToSrgb(lr/n), G=linearToSrgb(lg/n), B=linearToSrgb(lb/n);
+      rowArr.push({ r:R, g:G, b:B, lab:rgbToLab(R,G,B) });
+    }
+    grid.push(rowArr);
+  }
+  return { grid:grid, cols:cols, rows:rows, reduced:reduced };
+}
+
+/* ==========================================================================
+   PART 4 — COLOR REDUCTION (deterministic k-means in LAB)
+   ========================================================================== */
+function distinctWeightedColors(grid){
+  var map={}, out=[];
+  for(var y=0;y<grid.length;y++){ var row=grid[y]; for(var x=0;x<row.length;x++){ var c=row[x];
+    var key=((c.r<<16)|(c.g<<8)|c.b);
+    if(map[key]!==undefined){ out[map[key]].w++; } else { map[key]=out.length; out.push({ lab:c.lab, w:1 }); }
+  } }
+  return out;
+}
+function kmeansOnce(points, k, seed){
+  var rnd=mulberry32(seed), n=points.length, i, c;
+  var centroids=[];
+  var totalW=0; for(i=0;i<n;i++) totalW+=points[i].w;
+  // k-means++ seeding
+  var r=rnd()*totalW, pick=n-1; for(i=0;i<n;i++){ r-=points[i].w; if(r<=0){ pick=i; break; } }
+  centroids.push({L:points[pick].lab.L,a:points[pick].lab.a,b:points[pick].lab.b});
+  var d2=new Float64Array(n); for(i=0;i<n;i++) d2[i]=Infinity;
+  for(c=1;c<k;c++){
+    var sum=0; var last=centroids[c-1];
+    for(i=0;i<n;i++){ var dd=dist2(points[i].lab,last); if(dd<d2[i]) d2[i]=dd; sum+=d2[i]*points[i].w; }
+    if(sum<=0){ centroids.push({L:last.L,a:last.a,b:last.b}); continue; }
+    var rr=rnd()*sum, pk=n-1; for(i=0;i<n;i++){ rr-=d2[i]*points[i].w; if(rr<=0){ pk=i; break; } }
+    centroids.push({L:points[pk].lab.L,a:points[pk].lab.a,b:points[pk].lab.b});
+  }
+  var assign=new Int32Array(n); for(i=0;i<n;i++) assign[i]=-1;
+  for(var iter=0; iter<30; iter++){
+    var changes=0;
+    for(i=0;i<n;i++){ var best=0,bd=Infinity; for(c=0;c<centroids.length;c++){ var d=dist2(points[i].lab,centroids[c]); if(d<bd){bd=d;best=c;} } if(assign[i]!==best){assign[i]=best;changes++;} }
+    if(changes===0) break;
+    var sL=new Float64Array(centroids.length), sA=new Float64Array(centroids.length), sB=new Float64Array(centroids.length), sW=new Float64Array(centroids.length);
+    for(i=0;i<n;i++){ var cc=assign[i], w=points[i].w; sL[cc]+=points[i].lab.L*w; sA[cc]+=points[i].lab.a*w; sB[cc]+=points[i].lab.b*w; sW[cc]+=w; }
+    var move=0;
+    for(c=0;c<centroids.length;c++){
+      if(sW[c]>0){ var nl=sL[c]/sW[c], na=sA[c]/sW[c], nb=sB[c]/sW[c]; move+=deltaE(centroids[c],{L:nl,a:na,b:nb}); centroids[c]={L:nl,a:na,b:nb}; }
+      else { // empty cluster: re-seed to the highest-weight point farthest from all centroids
+        var bi=-1,bs=-1; for(i=0;i<n;i++){ var dmin=Infinity; for(var c2=0;c2<centroids.length;c2++){ var dd2=dist2(points[i].lab,centroids[c2]); if(dd2<dmin)dmin=dd2; } var sc=dmin*points[i].w; if(sc>bs){bs=sc;bi=i;} }
+        if(bi>=0){ centroids[c]={L:points[bi].lab.L,a:points[bi].lab.a,b:points[bi].lab.b}; }
+      }
+    }
+    if(move<0.5) break;
+  }
+  var inertia=0; for(i=0;i<n;i++) inertia+=dist2(points[i].lab,centroids[assign[i]])*points[i].w;
+  return { centroids:centroids, inertia:inertia };
+}
+function kMeansPalette(grid, k){
+  var points=distinctWeightedColors(grid);
+  var realK=Math.min(k, points.length);
+  var base=hashGrid(grid, grid[0]?grid[0].length:0, realK, 0);
+  var best=null;
+  for(var rr=0; rr<3; rr++){ var seed=(base ^ Math.imul(rr,0x9E3779B1))>>>0; var res=kmeansOnce(points, realK, seed); if(!best || res.inertia<best.inertia) best=res; }
+  var labs=best.centroids;
+  var palette=labs.map(function(L,i){ var rgb=labToRgb(L); return { lab:L, rgb:rgb, hex:rgbHex(rgb), count:0, index:i }; });
+  var cellIndex=[], total=0;
+  for(var y=0;y<grid.length;y++){ var rowIdx=new Int32Array(grid[y].length); for(var x=0;x<grid[y].length;x++){ var ci=nearestColor(grid[y][x].lab, labs); rowIdx[x]=ci; palette[ci].count++; total++; } cellIndex.push(rowIdx); }
+  return { palette:palette, cellIndex:cellIndex, total:total, realK:realK, requestedK:k };
+}
+
+/* ==========================================================================
+   PART 5 — STASH (read-only) + FALLBACK PALETTE + MATCHING
+   ========================================================================== */
+var STASH_KEY='crochetToolkit.stash.v1';
+function numOrNull(x){ if(x===''||x==null) return null; var n=Number(x); return isFinite(n)?n:null; }
+function str(x){ return x==null?'':String(x); }
+// Defensive: never throws, returns [] on any problem. Split out so the self-test can feed garbage.
+function readStashRaw(raw){
+  try{
+    if(!raw) return [];
+    var o=JSON.parse(raw);
+    if(!o || typeof o!=='object' || !Array.isArray(o.items)) return [];
+    return o.items.map(function(it){ it=it||{}; return {
+      brand:str(it.brand), line:str(it.line), colorName:str(it.colorName), colorHex:hexToRgb(it.colorHex)?str(it.colorHex):'',
+      weightCategory:numOrNull(it.weightCategory), yardsPerSkein:numOrNull(it.yardsPerSkein), gramsPerSkein:numOrNull(it.gramsPerSkein), skeinsOnHand:numOrNull(it.skeinsOnHand)
+    }; });
+  }catch(_){ return []; }
+}
+function readStash(){ var raw=null; try{ raw=localStorage.getItem(STASH_KEY); }catch(_){ raw=null; } return readStashRaw(raw); }
+
+var FALLBACK_PALETTE=[
+  {name:'White',hex:'#f7f5ef'},{name:'Cream',hex:'#efe6cf'},{name:'Light grey',hex:'#c8c6c1'},{name:'Grey',hex:'#8d8b86'},{name:'Charcoal',hex:'#3f3f42'},{name:'Black',hex:'#1d1d1f'},
+  {name:'Red',hex:'#c0392b'},{name:'Cranberry',hex:'#8d1f2d'},{name:'Orange',hex:'#d2691e'},{name:'Gold',hex:'#e0a93b'},{name:'Yellow',hex:'#f4c430'},
+  {name:'Lime',hex:'#7cb342'},{name:'Green',hex:'#3f7d4e'},{name:'Teal',hex:'#2f6f6f'},{name:'Sky',hex:'#6aa9d8'},{name:'Blue',hex:'#2f5da0'},{name:'Navy',hex:'#26314f'},
+  {name:'Purple',hex:'#6a4a9c'},{name:'Plum',hex:'#7a3b5e'},{name:'Pink',hex:'#e08aa6'},{name:'Brown',hex:'#6b4a2e'},{name:'Tan',hex:'#bda07a'},{name:'Skin light',hex:'#e9c2a3'},{name:'Skin deep',hex:'#8a5a3c'}
+];
+// Build the candidate list (owned yarn first, then generic fallback), each with a LAB value.
+function buildCandidates(source){
+  var out=[];
+  if(source==='stash' || source==='both'){
+    var stash=readStash();
+    stash.forEach(function(it){ if(!it.colorHex) return; var rgb=hexToRgb(it.colorHex); if(!rgb) return;
+      out.push({ kind:'stash', label:[it.brand,it.line,it.colorName].filter(Boolean).join(' · ')||'(stash yarn)', name:it.colorName||'(stash yarn)', hex:it.colorHex, lab:rgbToLab(rgb.r,rgb.g,rgb.b), weightCategory:it.weightCategory, yardsPerSkein:it.yardsPerSkein, skeinsOnHand:it.skeinsOnHand }); });
+  }
+  if(source==='builtin' || source==='both' || out.length===0){
+    FALLBACK_PALETTE.forEach(function(p){ var rgb=hexToRgb(p.hex); out.push({ kind:'fallback', label:p.name+' (not in your stash)', name:p.name, hex:p.hex, lab:rgbToLab(rgb.r,rgb.g,rgb.b), weightCategory:null, yardsPerSkein:null, skeinsOnHand:null }); });
+  }
+  return out;
+}
+// Match each chart color to a candidate. Greedy 1:1 if avoidReuse and enough candidates.
+function matchToYarnPalette(palette, candidates, avoidReuse){
+  var matches=new Array(palette.length);
+  if(!candidates.length){ for(var i=0;i<palette.length;i++) matches[i]=null; return matches; }
+  if(avoidReuse && candidates.length>=palette.length){
+    // build all (chartColor, candidate) distances, assign greedily by smallest distance, unique candidates
+    var pairs=[];
+    for(var p=0;p<palette.length;p++) for(var c=0;c<candidates.length;c++) pairs.push({p:p,c:c,d:dist2(palette[p].lab,candidates[c].lab)});
+    pairs.sort(function(a,b){ return a.d-b.d || a.p-b.p || a.c-b.c; });
+    var usedP={}, usedC={}, done=0;
+    for(var k=0;k<pairs.length && done<palette.length;k++){ var pr=pairs[k]; if(usedP[pr.p]||usedC[pr.c]) continue; matches[pr.p]={cand:candidates[pr.c],deltaE:Math.sqrt(pr.d)}; usedP[pr.p]=1; usedC[pr.c]=1; done++; }
+    return matches;
+  }
+  for(var q=0;q<palette.length;q++){ var idx=nearestColor(palette[q].lab, candidates.map(function(x){return x.lab;})); matches[q]={cand:candidates[idx], deltaE:deltaE(palette[q].lab,candidates[idx].lab)}; }
+  return matches;
+}
+function matchQuality(de){ if(de<=5) return {cls:'great',txt:'great match'}; if(de<=12) return {cls:'close',txt:'close'}; return {cls:'far',txt:'no close yarn'}; }
+
+/* ==========================================================================
+   PART 6 — YARN AMOUNT ESTIMATE  (flagged assumptions)
+   ========================================================================== */
+var YDS_PER_STITCH={0:0.05,1:0.07,2:0.09,3:0.11,4:0.13,5:0.18,6:0.25,7:0.30};
+function estimateForColor(count, cand, opts){
+  var weight = (cand && cand.weightCategory!=null) ? cand.weightCategory : opts.defaultWeight;
+  var yps = opts.ypsOverride!=null ? opts.ypsOverride : (YDS_PER_STITCH[weight]!=null?YDS_PER_STITCH[weight]:YDS_PER_STITCH[4]);
+  var totalYds = count * yps * (1+opts.waste);
+  var out={ totalYds:totalYds, yps:yps, weight:weight, skeins:null, needBuy:false };
+  if(cand && cand.yardsPerSkein){ out.skeins=Math.ceil(totalYds/cand.yardsPerSkein); if(cand.skeinsOnHand!=null && out.skeins>cand.skeinsOnHand) out.needBuy=true; }
+  return out;
+}
+
+/* ==========================================================================
+   PART 7 — UI
+   ========================================================================== */
+var $=function(id){ return document.getElementById(id); };
+function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+function fmt(n){ return (Math.round(n*10)/10).toLocaleString(); }
+function symbolFor(i){ var L='ABCDEFGHIJKLMNOPQRSTUVWXYZ'; return i<26 ? L.charAt(i) : ('#'+(i+1)); }
+function contrastInk(rgb){ var yiq=(rgb.r*299+rgb.g*587+rgb.b*114)/1000; return yiq>=140?'#222':'#fff'; }
+
+var ST={ imageData:null, width:50, k:6, mode:'graphgan', aspect:false, source:'both', avoid:false, symbols:false,
+  waste:0.15, ypsOverride:null, defaultWeight:4, cellPx:16, follow:false, followIndex:0,
+  result:null, candidates:[], matches:[], overrides:{} };
+
+function toast(m){ var t=$('toast'); t.textContent=m; t.classList.remove('hidden'); clearTimeout(toast._t); toast._t=setTimeout(function(){t.classList.add('hidden');},2600); }
+function show(id,on){ $(id).classList.toggle('hidden', !on); }
+
+/* ----- dialogs (iOS-standalone-safe) ----- */
+var _dlg=null;
+function showDialog(html){ var d=$('dialog'); d.querySelector('.dialog-card').innerHTML=html; d.classList.remove('hidden'); }
+function hideDialog(){ $('dialog').classList.add('hidden'); $('dialog').querySelector('.dialog-card').innerHTML=''; }
+function confirmDialog(msg,opts){ opts=opts||{}; return new Promise(function(res){ showDialog('<div class="dialog-msg">'+esc(msg)+'</div><div class="dialog-actions"><button class="btn ghost" data-dlg="cancel">'+esc(opts.cancelText||'Cancel')+'</button><button class="btn '+(opts.danger?'danger':'primary')+'" data-dlg="ok">'+esc(opts.okText||'OK')+'</button></div>'); _dlg=function(v){ hideDialog(); res(v==='ok'); }; }); }
+$('dialog').addEventListener('click', function(e){ var b=e.target.closest('[data-dlg]'); if(b){ if(_dlg){ var r=_dlg; _dlg=null; r(b.getAttribute('data-dlg')); } return; } if(e.target===$('dialog') && _dlg){ var r2=_dlg; _dlg=null; r2('cancel'); } });
+
+/* ----- modal ----- */
+function openModal(title, body){ $('modal-inner').innerHTML='<div class="modal-head"><h2>'+esc(title)+'</h2><button class="btn ghost small" data-action="closemodal">✕</button></div><div class="modal-body">'+body+'</div>'; $('modal').classList.remove('hidden'); }
+function closeModal(){ $('modal').classList.add('hidden'); $('modal-inner').innerHTML=''; }
+$('modal').addEventListener('click', function(e){ if(e.target===$('modal')) closeModal(); });
+
+/* ----- mode help text ----- */
+var MODE_HELP={
+  graphgan:'Worked in rows, row 1 at the bottom. Odd rows read right→left, even rows left→right (turn at each end). Each square = one stitch.',
+  pixel:'A single-crochet "pixel" chart. Same as graphgan: row 1 at the bottom, rows alternate direction. Each square = one single crochet.',
+  c2c:'BETA — please sanity-check. Corner-to-corner: worked along diagonals (each diagonal line = one C2C "row" of tiles). Start from a bottom corner, increase to the widest diagonal, then decrease.'
+};
+function setMode(m){ ST.mode=m; var seg=$('mode-seg'); var bs=seg.querySelectorAll('button'); for(var i=0;i<bs.length;i++) bs[i].classList.toggle('active', bs[i].getAttribute('data-mode')===m); $('mode-help').textContent=MODE_HELP[m]; if(ST.result){ ST.follow=false; renderResult(); } }
+
+/* ----- size hint ----- */
+function updateSizeHint(){
+  var w=clampInt($('f-width').value,10,120,50);
+  var hint='';
+  if(w<20) hint='Tip: very few stitches wide — small, blocky result.';
+  else if(w>90) hint='Tip: wide chart — lots of stitches; may be slow to follow on a phone.';
+  $('size-hint').textContent=hint;
+}
+function clampInt(v,min,max,def){ var n=parseInt(v,10); if(!isFinite(n)) n=def; if(n<min)n=min; if(n>max)n=max; return n; }
+
+/* ----- pick / load image ----- */
+function onPick(){ var f=$('file'); f.value=''; f.onchange=function(){ var file=f.files&&f.files[0]; if(!file) return; loadAndShowSettings(loadImageToImageData(file)); }; f.click(); }
+function loadAndShowSettings(promise){
+  toast('Reading photo…');
+  promise.then(function(data){ ST.imageData=data; show('settings-card',true); refreshStashNote(); updateSizeHint(); toast('Photo loaded — choose your settings.'); $('settings-card').scrollIntoView({behavior:'smooth',block:'start'}); })
+    .catch(function(e){ toast((e&&e.message)||'Could not read that image.'); });
+}
+function makeSampleImageData(){
+  var c=document.createElement('canvas'); c.width=160; c.height=120; var x=c.getContext('2d');
+  x.fillStyle='#9ed3ef'; x.fillRect(0,0,160,80);
+  x.fillStyle='#6bbf4a'; x.fillRect(0,80,160,40);
+  x.fillStyle='#ffd23f'; x.beginPath(); x.arc(126,28,17,0,Math.PI*2); x.fill();
+  x.fillStyle='#c8642b'; x.fillRect(30,55,55,40);
+  x.fillStyle='#7a3b18'; x.beginPath(); x.moveTo(26,56); x.lineTo(57,30); x.lineTo(89,56); x.closePath(); x.fill();
+  x.fillStyle='#3a2a1a'; x.fillRect(50,72,16,23);
+  return x.getImageData(0,0,160,120);
+}
+
+function refreshStashNote(){
+  var stash=readStash(); var withHex=stash.filter(function(s){return s.colorHex;}).length;
+  var el=$('stash-note');
+  if(stash.length===0) el.textContent='No saved yarn found — using the basic built-in palette. (Add yarn in the Stash Manager to match to colors you own.)';
+  else el.textContent='Found '+stash.length+' yarn'+(stash.length===1?'':'s')+' in your stash ('+withHex+' with a saved color).';
+}
+
+/* ----- generate ----- */
+function readSettings(){
+  ST.width=clampInt($('f-width').value,10,120,50);
+  ST.k=clampInt($('f-colors').value,2,16,6);
+  ST.aspect=$('f-aspect').checked;
+  ST.source=$('f-source').value;
+  ST.avoid=$('f-avoid').checked;
+  ST.symbols=$('f-symbols').checked;
+  ST.waste=Math.max(0,Math.min(100,parseFloat($('f-waste').value)||0))/100;
+  var yo=parseFloat($('f-ypstitch').value); ST.ypsOverride=isFinite(yo)&&yo>0?yo:null;
+}
+function generate(){
+  if(!ST.imageData){ toast('Pick a photo first.'); return; }
+  readSettings();
+  var btn=document.querySelector('[data-action="generate"]'); if(btn){ btn.disabled=true; btn.textContent='Generating…'; }
+  // defer so the button paints before the heavy work
+  setTimeout(function(){
+    try{
+      var aspect = ST.aspect ? 1.3 : 1.0;
+      var ds=downscaleToGrid(ST.imageData, ST.width, aspect);
+      var res=kMeansPalette(ds.grid, ST.k);
+      ST.result={ ds:ds, palette:res.palette, cellIndex:res.cellIndex, total:res.total, realK:res.realK, requestedK:res.requestedK };
+      // symbols
+      ST.result.palette.forEach(function(p,i){ p.symbol=symbolFor(i); });
+      // matching
+      ST.candidates=buildCandidates(ST.source);
+      ST.matches=matchToYarnPalette(ST.result.palette, ST.candidates, ST.avoid);
+      ST.overrides={};
+      ST.cellPx=16; ST.follow=false; ST.followIndex=0;
+      show('result-card',true); show('key-card',true);
+      renderResult(); renderKey();
+      $('result-card').scrollIntoView({behavior:'smooth',block:'start'});
+      if(res.realK<res.requestedK) toast('Only '+res.realK+' distinct colors available — used '+res.realK+'.');
+      else if(ds.reduced) toast('Chart was capped for size; width auto-reduced.');
+    }catch(e){ toast('Could not make a chart from that image — try a smaller width.'); }
+    finally{ if(btn){ btn.disabled=false; btn.textContent='Generate chart'; } }
+  }, 30);
+}
+
+/* ----- render chart on canvas ----- */
+function effectiveMatch(i){ return ST.overrides[i]!==undefined ? {cand:ST.candidates[ST.overrides[i]], deltaE:deltaE(ST.result.palette[i].lab, ST.candidates[ST.overrides[i]].lab)} : ST.matches[i]; }
+function renderResult(){
+  var r=ST.result; if(!r) return;
+  var cols=r.ds.cols, rows=r.ds.rows;
+  // keep the canvas within iOS limits
+  var pad=22, cell=ST.cellPx;
+  var maxSide=4000; while((cols*cell+pad)>maxSide || (rows*cell+pad)>maxSide){ cell--; if(cell<3) break; }
+  ST.cellPx=cell;
+  var W=cols*cell+pad, H=rows*cell+pad;
+  var cv=$('chart'); cv.width=W; cv.height=H; var g=cv.getContext('2d');
+  g.fillStyle='#ffffff'; g.fillRect(0,0,W,H);
+  var ox=pad, oy=0; // leave left margin for row numbers, top for nothing
+  // draw cells (row 1 at the bottom -> source grid row 0 is the TOP visually = highest row number)
+  for(var y=0;y<rows;y++){ for(var x=0;x<cols;x++){
+    var pi=r.cellIndex[y][x]; var col=r.palette[pi].rgb;
+    var px=ox+x*cell, py=oy+y*cell;
+    g.fillStyle='rgb('+col.r+','+col.g+','+col.b+')'; g.fillRect(px,py,cell,cell);
+    if(ST.symbols && cell>=12){ g.fillStyle=contrastInk(col); g.font='bold '+Math.floor(cell*0.62)+'px system-ui,sans-serif'; g.textAlign='center'; g.textBaseline='middle'; g.fillText(r.palette[pi].symbol, px+cell/2, py+cell/2+1); }
+  } }
+  // gridlines
+  g.strokeStyle='rgba(0,0,0,.18)'; g.lineWidth=1;
+  for(var gx=0; gx<=cols; gx++){ var X=ox+gx*cell+0.5; g.beginPath(); g.moveTo(X,oy); g.lineTo(X,oy+rows*cell); g.stroke(); }
+  for(var gy=0; gy<=rows; gy++){ var Y=oy+gy*cell+0.5; g.beginPath(); g.moveTo(ox,Y); g.lineTo(ox+cols*cell,Y); g.stroke(); }
+  // bold every 10
+  g.strokeStyle='rgba(0,0,0,.55)'; g.lineWidth=1.6;
+  for(var bx=0; bx<=cols; bx+=10){ var BX=ox+bx*cell+0.5; g.beginPath(); g.moveTo(BX,oy); g.lineTo(BX,oy+rows*cell); g.stroke(); }
+  for(var by=0; by<=rows; by+=10){ var BY=oy+by*cell+0.5; g.beginPath(); g.moveTo(ox,BY); g.lineTo(ox+cols*cell,BY); g.stroke(); }
+  // row numbers (row 1 at bottom). visual row y -> crochet row number = rows - y
+  g.fillStyle='#555'; g.font=Math.max(9,Math.floor(cell*0.5))+'px system-ui,sans-serif'; g.textAlign='right'; g.textBaseline='middle';
+  for(var ry=0; ry<rows; ry++){ var num=rows-ry; if(num%5===0 || num===1 || num===rows){ g.fillText(String(num), ox-3, oy+ry*cell+cell/2); } }
+  // C2C diagonal overlay
+  if(ST.mode==='c2c'){
+    g.strokeStyle='rgba(47,111,111,.5)'; g.lineWidth=1;
+    for(var d=0; d<cols+rows; d+=1){ if(d%5!==0) continue; // every 5th diagonal to reduce clutter
+      g.beginPath(); var started=false;
+      for(var yy=0; yy<rows; yy++){ var xx=d-yy; if(xx<0||xx>=cols) continue; var cxp=ox+xx*cell+cell, cyp=oy+yy*cell+cell; if(!started){ g.moveTo(ox+xx*cell,oy+yy*cell); started=true; } g.lineTo(cxp,cyp); }
+      if(started) g.stroke();
+    }
+  }
+  // follow-mode highlight
+  if(ST.follow){
+    if(ST.mode==='c2c'){
+      var dmax=cols+rows-2; var d2=ST.followIndex; g.fillStyle='rgba(255,255,255,.62)'; g.fillRect(ox,oy,cols*cell,rows*cell);
+      for(var yy2=0; yy2<rows; yy2++){ var xx2=d2-yy2; if(xx2<0||xx2>=cols) continue; var pi2=r.cellIndex[yy2][xx2]; var col2=r.palette[pi2].rgb; g.fillStyle='rgb('+col2.r+','+col2.g+','+col2.b+')'; g.fillRect(ox+xx2*cell,oy+yy2*cell,cell,cell); g.strokeStyle='#111'; g.lineWidth=2; g.strokeRect(ox+xx2*cell+1,oy+yy2*cell+1,cell-2,cell-2); }
+    } else {
+      var visRow=rows-ST.followIndex-1; // followIndex is 0-based crochet row from bottom
+      g.fillStyle='rgba(255,255,255,.62)'; g.fillRect(ox,oy,cols*cell,rows*cell);
+      // redraw active row cells
+      for(var ax=0; ax<cols; ax++){ var pi3=r.cellIndex[visRow][ax]; var col3=r.palette[pi3].rgb; g.fillStyle='rgb('+col3.r+','+col3.g+','+col3.b+')'; g.fillRect(ox+ax*cell,oy+visRow*cell,cell,cell); if(ST.symbols&&cell>=12){ g.fillStyle=contrastInk(col3); g.font='bold '+Math.floor(cell*0.62)+'px system-ui,sans-serif'; g.textAlign='center'; g.textBaseline='middle'; g.fillText(r.palette[pi3].symbol, ox+ax*cell+cell/2, oy+visRow*cell+cell/2+1); } }
+      g.strokeStyle='#111'; g.lineWidth=2.5; g.strokeRect(ox+0.5, oy+visRow*cell+0.5, cols*cell, cell);
+    }
+  }
+  // summary + legend
+  $('result-summary').textContent = cols+' stitches wide × '+rows+' rows = '+(cols*rows).toLocaleString()+' stitches · '+r.realK+' colors';
+  $('legend').textContent = ST.mode==='c2c' ? 'C2C (beta): work along diagonals from a bottom corner. Numbers on the left are graph rows.' :
+    'Read row 1 at the BOTTOM. Odd rows: right→left. Even rows: left→right. (Numbers show graph rows.)';
+  renderFollowBar();
+}
+function renderFollowBar(){
+  var fb=$('followbar'); if(!ST.follow){ fb.innerHTML=''; return; }
+  var r=ST.result, cols=r.ds.cols, rows=r.ds.rows;
+  var label, runs;
+  if(ST.mode==='c2c'){
+    var dmax=cols+rows-2; if(ST.followIndex>dmax) ST.followIndex=dmax; if(ST.followIndex<0) ST.followIndex=0;
+    label='Diagonal '+(ST.followIndex+1)+' of '+(dmax+1);
+    var cells=[]; for(var yy=0; yy<rows; yy++){ var xx=ST.followIndex-yy; if(xx>=0&&xx<cols) cells.push(r.cellIndex[yy][xx]); }
+    runs=runLength(cells);
+  } else {
+    if(ST.followIndex>rows-1) ST.followIndex=rows-1; if(ST.followIndex<0) ST.followIndex=0;
+    var rowNum=ST.followIndex+1; var visRow=rows-ST.followIndex-1;
+    var leftToRight=(rowNum%2===0); // odd rows right->left, even left->right
+    var arr=[]; for(var x=0;x<cols;x++) arr.push(r.cellIndex[visRow][x]); if(!leftToRight) arr.reverse();
+    label='Row '+rowNum+' of '+rows+' · read '+(leftToRight?'left→right':'right→left');
+    runs=runLength(arr);
+  }
+  var txt=runs.map(function(rn){ var p=r.palette[rn.idx]; return rn.n+' '+(p.symbol)+' '+(matchName(rn.idx)); }).join(',  ');
+  fb.innerHTML='<div class="followbar"><div class="row"><b>'+esc(label)+'</b><span class="spacer"></span>'+
+    '<button class="btn small" data-action="follow-prev">◀ Prev</button><button class="btn small" data-action="follow-next">Next ▶</button>'+
+    '<button class="btn small ghost" data-action="follow-stop">Done</button></div>'+
+    '<div class="read">'+esc(txt)+'</div></div>';
+}
+function runLength(arr){ var out=[]; for(var i=0;i<arr.length;i++){ if(out.length && out[out.length-1].idx===arr[i]) out[out.length-1].n++; else out.push({idx:arr[i],n:1}); } return out; }
+function matchName(i){ var m=effectiveMatch(i); if(m && m.cand) return m.cand.name; return ST.result.palette[i].hex; }
+
+/* ----- color key ----- */
+function renderKey(){
+  var r=ST.result; if(!r){ $('keylist').innerHTML=''; return; }
+  var opts={ waste:ST.waste, ypsOverride:ST.ypsOverride, defaultWeight:ST.defaultWeight };
+  // candidate options for the reassign dropdown
+  var candOpts=ST.candidates.map(function(c,idx){ return '<option value="'+idx+'">'+esc(c.label)+'</option>'; }).join('');
+  // detect duplicate matches
+  var usedCount={};
+  r.palette.forEach(function(p,i){ var m=effectiveMatch(i); if(m&&m.cand){ var key=m.cand.kind+'|'+m.cand.hex+'|'+m.cand.label; usedCount[key]=(usedCount[key]||0)+1; } });
+  var html='';
+  r.palette.forEach(function(p,i){
+    var m=effectiveMatch(i); var cand=m&&m.cand; var q=cand?matchQuality(m.deltaE):null;
+    var est=estimateForColor(p.count, cand, opts);
+    var pct=Math.round(p.count/r.total*100);
+    var ink=contrastInk(p.rgb);
+    var amount;
+    if(cand && cand.yardsPerSkein){ amount=fmt(est.totalYds)+' yds ≈ <b>'+est.skeins+' skein'+(est.skeins===1?'':'s')+'</b>'+(est.needBuy?' <span class="badge far">need to buy more</span>':''); }
+    else { amount=fmt(est.totalYds)+' yds <span class="muted">(enter yards-per-skein in the Stash Manager to get skeins)</span>'; }
+    var dupKey=cand?cand.kind+'|'+cand.hex+'|'+cand.label:null;
+    var dup=(dupKey && usedCount[dupKey]>1)?' <span class="muted">· shared with another color</span>':'';
+    var selIdx = ST.overrides[i]!==undefined ? ST.overrides[i] : (cand?ST.candidates.indexOf(cand):-1);
+    html+='<div class="keyrow">'+
+      '<div class="sw-sq" style="background:'+p.hex+';color:'+ink+'">'+esc(p.symbol)+'</div>'+
+      '<div class="keymain">'+
+        '<div class="top">'+esc(p.hex)+' · '+p.count.toLocaleString()+' sts · '+pct+'%'+'</div>'+
+        '<div class="sub">'+(cand?('→ '+esc(cand.label)+' <span class="badge '+q.cls+'">'+q.txt+'</span>'+dup):'no yarn match')+'</div>'+
+        '<div class="sub">'+amount+'</div>'+
+        (ST.candidates.length?('<select data-reassign="'+i+'">'+candOpts.replace('value="'+selIdx+'"','value="'+selIdx+'" selected')+'</select>'):'')+
+      '</div>'+
+    '</div>';
+  });
+  $('keylist').innerHTML=html;
+}
+
+/* ----- follow mode controls ----- */
+function startFollow(){ if(!ST.result) return; ST.follow=true; ST.followIndex=0; renderResult(); $('followbar').scrollIntoView({behavior:'smooth',block:'end'}); }
+function stepFollow(d){ var r=ST.result; if(!r) return; var max=(ST.mode==='c2c')?(r.ds.cols+r.ds.rows-2):(r.ds.rows-1); ST.followIndex=Math.max(0,Math.min(max,ST.followIndex+d)); renderResult(); }
+
+/* ----- zoom ----- */
+function zoom(d){ ST.cellPx=Math.max(4,Math.min(40,ST.cellPx+d)); renderResult(); }
+
+/* ----- export ----- */
+function buildExportCanvas(blackwhite){
+  var r=ST.result; var cols=r.ds.cols, rows=r.ds.rows;
+  var cell=18, pad=26, keyH=28*(r.palette.length)+40;
+  var W=cols*cell+pad+10, H=rows*cell+pad+keyH;
+  var cv=document.createElement('canvas'); cv.width=W; cv.height=H; var g=cv.getContext('2d');
+  g.fillStyle='#fff'; g.fillRect(0,0,W,H);
+  var ox=pad, oy=10;
+  for(var y=0;y<rows;y++){ for(var x=0;x<cols;x++){ var pi=r.cellIndex[y][x]; var col=r.palette[pi].rgb; var px=ox+x*cell, py=oy+y*cell;
+    if(blackwhite){ g.fillStyle='#fff'; g.fillRect(px,py,cell,cell); g.fillStyle='#111'; g.font='bold '+Math.floor(cell*0.6)+'px system-ui,sans-serif'; g.textAlign='center'; g.textBaseline='middle'; g.fillText(r.palette[pi].symbol,px+cell/2,py+cell/2+1); }
+    else { g.fillStyle='rgb('+col.r+','+col.g+','+col.b+')'; g.fillRect(px,py,cell,cell); if(ST.symbols){ g.fillStyle=contrastInk(col); g.font='bold '+Math.floor(cell*0.6)+'px system-ui,sans-serif'; g.textAlign='center'; g.textBaseline='middle'; g.fillText(r.palette[pi].symbol,px+cell/2,py+cell/2+1); } }
+  } }
+  g.strokeStyle='rgba(0,0,0,.18)'; g.lineWidth=1;
+  for(var gx=0;gx<=cols;gx++){ var X=ox+gx*cell+0.5; g.beginPath(); g.moveTo(X,oy); g.lineTo(X,oy+rows*cell); g.stroke(); }
+  for(var gy=0;gy<=rows;gy++){ var Y=oy+gy*cell+0.5; g.beginPath(); g.moveTo(ox,Y); g.lineTo(ox+cols*cell,Y); g.stroke(); }
+  g.strokeStyle='rgba(0,0,0,.6)'; g.lineWidth=1.6;
+  for(var bx=0;bx<=cols;bx+=10){ var BX=ox+bx*cell+0.5; g.beginPath(); g.moveTo(BX,oy); g.lineTo(BX,oy+rows*cell); g.stroke(); }
+  for(var by=0;by<=rows;by+=10){ var BY=oy+by*cell+0.5; g.beginPath(); g.moveTo(ox,BY); g.lineTo(ox+cols*cell,BY); g.stroke(); }
+  g.fillStyle='#555'; g.font='11px system-ui,sans-serif'; g.textAlign='right'; g.textBaseline='middle';
+  for(var ry=0;ry<rows;ry++){ var num=rows-ry; if(num%5===0||num===1||num===rows) g.fillText(String(num),ox-3,oy+ry*cell+cell/2); }
+  // key
+  var ky=oy+rows*cell+24; g.textAlign='left'; g.fillStyle='#111'; g.font='bold 14px system-ui,sans-serif'; g.fillText('Color key — '+cols+'×'+rows+', read row 1 at bottom',ox,ky); ky+=22;
+  g.font='13px system-ui,sans-serif';
+  for(var i=0;i<r.palette.length;i++){ var p=r.palette[i]; var m=effectiveMatch(i); var nm=m&&m.cand?m.cand.label:p.hex;
+    if(blackwhite){ g.fillStyle='#fff'; g.fillRect(ox,ky-12,18,18); g.strokeStyle='#111'; g.lineWidth=1; g.strokeRect(ox+0.5,ky-11.5,17,17); g.fillStyle='#111'; g.textAlign='center'; g.font='bold 12px system-ui,sans-serif'; g.fillText(p.symbol,ox+9,ky-2); g.textAlign='left'; g.font='13px system-ui,sans-serif'; }
+    else { g.fillStyle=p.hex; g.fillRect(ox,ky-12,18,18); g.fillStyle=contrastInk(p.rgb); g.font='bold 11px system-ui,sans-serif'; g.textAlign='center'; g.fillText(p.symbol,ox+9,ky-2); g.textAlign='left'; g.font='13px system-ui,sans-serif'; }
+    g.fillStyle='#111'; g.fillText(p.symbol+'  '+p.hex+'  ·  '+p.count+' sts  ·  '+esc(nm), ox+26, ky-1);
+    ky+=26;
+  }
+  return cv;
+}
+function exportChart(){
+  if(!ST.result) return;
+  openModal('Export / Print', '<p class="muted" style="margin-top:0">Save the chart as an image (color or black-&-white with letters), or print it.</p>'+
+    '<div class="row">'+
+      (navigator.share?'<button class="btn primary" data-action="exp-share">Share / Save image</button>':'')+
+      '<button class="btn" data-action="exp-download">Download image</button>'+
+      '<button class="btn" data-action="exp-bw">Black &amp; white version</button>'+
+      (isStandalone()?'':'<button class="btn" data-action="exp-print">Print</button>')+
+    '</div>'+
+    (isStandalone()?'<div class="hint" style="margin-top:8px">To print: tap <b>Download image</b> (or Share → Save to Photos), then print the saved picture from Photos / Files.</div>':'')+
+    '<div id="exp-out" style="margin-top:12px"></div>');
+}
+function doExport(blackwhite, mode){
+  var cv=buildExportCanvas(blackwhite);
+  cv.toBlob(function(blob){
+    if(!blob){ toast('Could not build the image.'); return; }
+    var fname='crochet-chart'+(blackwhite?'-bw':'')+'.png';
+    if(mode==='share'){
+      try{ var file=new File([blob],fname,{type:'image/png'}); if(navigator.canShare&&navigator.canShare({files:[file]})){ navigator.share({files:[file],title:'Crochet chart'}).then(function(){toast('Shared.');}).catch(function(){}); return; } }catch(_){}
+      if(navigator.share){ navigator.share({title:'Crochet chart'}).catch(function(){}); }
+      showExportImage(blob); return;
+    }
+    if(mode==='download'){ var url=URL.createObjectURL(blob); var a=document.createElement('a'); a.href=url; a.download=fname; document.body.appendChild(a); a.click(); setTimeout(function(){document.body.removeChild(a);URL.revokeObjectURL(url);},150); toast('Downloaded (or press-and-hold the image below to save).'); }
+    showExportImage(blob);
+  }, 'image/png');
+}
+function showExportImage(blob){ var url=URL.createObjectURL(blob); var out=$('exp-out'); if(out){ out.innerHTML='<div class="hint">On iPhone, press-and-hold this image → "Save to Photos" / "Add to Files".</div><img class="exported" src="'+url+'" alt="chart">'; } }
+function printChart(){ var cv=buildExportCanvas(false); var url=cv.toDataURL('image/png'); var w=window.open('','_blank'); if(!w){ toast('Couldn’t open a print view — tap Download, then print the saved image.'); return; } w.document.write('<html><head><title>Crochet chart</title></head><body style="margin:0;text-align:center"><img src="'+url+'" style="max-width:100%"><script>setTimeout(function(){window.print();},300);<\/script></body></html>'); w.document.close(); }
+
+/* ----- self-test ----- */
+function runSelfTest(){
+  var out=$('selftest-out'); out.innerHTML='<div class="muted" style="margin-top:10px">Running…</div>';
+  var lines=[]; function add(name,pass,detail){ lines.push({name:name,pass:!!pass,detail:detail||''}); }
+  // 1) rgbToLab known values
+  var w=rgbToLab(255,255,255), k=rgbToLab(0,0,0);
+  add('White→LAB L≈100, black→L≈0', Math.abs(w.L-100)<0.6 && Math.abs(w.a)<1 && Math.abs(w.b)<1 && Math.abs(k.L)<0.6);
+  // 2) round-trip rgb->lab->rgb
+  var samples=[[200,30,40],[40,120,200],[123,77,210],[18,200,90]]; var rtOk=true;
+  samples.forEach(function(s){ var r2=labToRgb(rgbToLab(s[0],s[1],s[2])); if(Math.abs(r2.r-s[0])>2||Math.abs(r2.g-s[1])>2||Math.abs(r2.b-s[2])>2) rtOk=false; });
+  add('RGB→LAB→RGB round-trips (±2)', rtOk);
+  // 3) distance symmetry
+  var A=rgbToLab(10,20,30), B=rgbToLab(200,150,100); add('Color distance is symmetric', Math.abs(dist2(A,B)-dist2(B,A))<1e-9);
+  // 4) downscale cell-count math + counts sum
+  var ds=downscaleToGrid(makeSampleImageData(), 40, 1.0);
+  add('Downscale width = requested', ds.cols===40 && ds.grid.length===ds.rows);
+  var res=kMeansPalette(ds.grid, 6); var sum=0; res.palette.forEach(function(p){sum+=p.count;});
+  add('Per-color counts sum to total stitches', sum===res.total && res.total===ds.cols*ds.rows);
+  // 5) determinism: same input -> identical palette + counts
+  var res2=kMeansPalette(ds.grid, 6);
+  var same=res.palette.length===res2.palette.length; for(var i=0;same&&i<res.palette.length;i++){ if(res.palette[i].hex!==res2.palette[i].hex||res.palette[i].count!==res2.palette[i].count) same=false; }
+  add('Same photo + settings → identical chart', same);
+  // 6) stash read never throws on garbage
+  var g1=readStashRaw('{ not valid json'), g2=readStashRaw(null), g3=readStashRaw('{"items":"nope"}');
+  add('Reading a broken stash never crashes', Array.isArray(g1)&&g1.length===0&&Array.isArray(g2)&&Array.isArray(g3)&&g3.length===0);
+  var allPass=lines.every(function(l){return l.pass;});
+  out.innerHTML=lines.map(function(l){ return '<div class="testline">'+(l.pass?'<span class="ok">✓ PASS</span>':'<span class="no">✗ FAIL</span>')+' '+esc(l.name)+(l.detail?(' — '+esc(l.detail)):'')+'</div>'; }).join('')+
+    '<div style="margin-top:8px;font-weight:800;color:'+(allPass?'var(--good)':'var(--bad)')+'">'+(allPass?'All checks passed ✓':'Some checks FAILED ✗')+'</div>';
+}
+
+/* ----- events ----- */
+document.addEventListener('click', function(e){
+  var el=e.target.closest('[data-action]'); if(!el) return;
+  var a=el.getAttribute('data-action');
+  switch(a){
+    case 'pick': onPick(); break;
+    case 'sample': loadAndShowSettings(Promise.resolve(makeSampleImageData())); break;
+    case 'selftest': runSelfTest(); break;
+    case 'w-': stepField('f-width',-5,10,120); break;
+    case 'w+': stepField('f-width',5,10,120); break;
+    case 'k-': stepField('f-colors',-1,2,16); break;
+    case 'k+': stepField('f-colors',1,2,16); break;
+    case 'generate': generate(); break;
+    case 'zoom-': zoom(-2); break;
+    case 'zoom+': zoom(2); break;
+    case 'follow': startFollow(); break;
+    case 'follow-prev': stepFollow(-1); break;
+    case 'follow-next': stepFollow(1); break;
+    case 'follow-stop': ST.follow=false; renderResult(); break;
+    case 'export': exportChart(); break;
+    case 'exp-share': doExport(false,'share'); break;
+    case 'exp-download': doExport(false,'download'); break;
+    case 'exp-bw': doExport(true,'download'); break;
+    case 'exp-print': printChart(); break;
+    case 'closemodal': closeModal(); break;
+  }
+});
+document.addEventListener('change', function(e){
+  var sel=e.target.closest('[data-reassign]'); if(sel){ var i=parseInt(sel.getAttribute('data-reassign'),10); ST.overrides[i]=parseInt(sel.value,10); renderKey(); if(ST.follow) renderFollowBar(); return; }
+});
+$('mode-seg').addEventListener('click', function(e){ var b=e.target.closest('button[data-mode]'); if(b) setMode(b.getAttribute('data-mode')); });
+$('f-width').addEventListener('input', updateSizeHint);
+function stepField(id,delta,min,max){ var inp=$(id); inp.value=clampInt((parseInt(inp.value,10)||min)+delta,min,max,min); if(id==='f-width') updateSizeHint(); }
+
+/* ----- boot ----- */
+function isStandalone(){ try{ return (window.navigator.standalone===true)||(window.matchMedia&&window.matchMedia('(display-mode: standalone)').matches); }catch(_){ return false; } }
+function renderInstall(){
+  var standalone=isStandalone(), iOS=/iPad|iPhone|iPod/.test(navigator.userAgent||'');
+  $('install-body').innerHTML = standalone ? '<div class="hint">Running as an installed app — works offline.</div>' :
+    '<ol class="steps"><li>Open this page in <b>Safari</b>.</li><li>Tap <b>Share</b> → <b>Add to Home Screen</b> → <b>Add</b>.</li><li>Open it from the new icon — it runs offline.</li></ol>'+
+    '<div class="hint">'+(iOS?'':'On other phones use your browser menu → "Add to Home Screen / Install."')+'</div>';
+  if(!standalone){ $('banner-area').innerHTML='<div class="banner warn">📲 Add to your Home Screen to use this like an app, offline. '+(iOS?'Tap <b>Share</b> → <b>Add to Home Screen</b>.':'See "Use it as an app" below.')+'</div>'; }
+}
+if('serviceWorker' in navigator && location.protocol.indexOf('http')===0){ try{ navigator.serviceWorker.register('sw.js').catch(function(){}); }catch(_){} }
+try{ if(navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(function(){}); }catch(_){}
+setMode('graphgan');
+renderInstall();
+// expose a few internals for the self-test / debugging
+window.ChartGen={ rgbToLab:rgbToLab, labToRgb:labToRgb, downscaleToGrid:downscaleToGrid, kMeansPalette:kMeansPalette, readStashRaw:readStashRaw, makeSampleImageData:makeSampleImageData, ST:ST };
+</script>
+</body>
+</html>
