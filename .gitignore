@@ -1,1 +1,8 @@
 .DS_Store
+
+# Ravelry proxy — never commit real config or secrets
+substitute/proxy/wrangler.toml
+substitute/proxy/.dev.vars
+substitute/proxy/*.dev.vars
+substitute/proxy/.wrangler/
+substitute/proxy/node_modules/
