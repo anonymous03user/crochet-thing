@@ -4,11 +4,25 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Crochet Toolkit — Stash Manager</title>
+<meta name="theme-color" content="#b5651d">
+<meta name="color-scheme" content="light">
+<meta name="format-detection" content="telephone=no">
+<!-- Make "Add to Home Screen" install this as a standalone app (important on iPhone, so the
+     data is NOT wiped by Safari's 7-day cleanup and the app opens offline like a real app). -->
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Stash">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<link rel="icon" type="image/png" href="icons/icon-192.png">
+<link rel="manifest" href="manifest.webmanifest">
 <!--
-  Crochet Toolkit · Module 2 · Stash Manager  (v1, single self-contained file)
+  Crochet Toolkit · Module 2 · Stash Manager  (mobile / installable PWA)
   ------------------------------------------------------------------------------
-  Open this file in any modern browser (double-click it). Everything — the code,
-  the styles, and your saved yarn — lives on YOUR computer. No internet, no account.
+  Works in any modern browser, but it's designed to be ADDED TO THE HOME SCREEN
+  on an iPhone so it runs like an app, works offline, and keeps your stash saved.
+  All the code, styles, and your saved yarn live on YOUR device. No account.
+  (Companion files: manifest.webmanifest, sw.js, icons/ — keep them next to this file.)
 
   HOW YOUR DATA IS STORED (plain English):
     • The yarn list and projects are saved as one block of text in the browser's
@@ -34,13 +48,15 @@
     color:var(--ink); background:var(--bg);
     -webkit-text-size-adjust:100%;
   }
-  .wrap{max-width:1000px;margin:0 auto;padding:0 14px 90px}
-  header.app{padding:18px 0 8px;display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
-  header.app h1{font-size:22px;margin:0;font-weight:800;letter-spacing:.2px}
+  .wrap{max-width:1000px;margin:0 auto;
+    padding:0 calc(14px + env(safe-area-inset-right)) calc(96px + env(safe-area-inset-bottom)) calc(14px + env(safe-area-inset-left))}
+  header.app{padding:calc(16px + env(safe-area-inset-top)) 0 8px;display:flex;align-items:baseline;flex-wrap:wrap}
+  header.app h1{font-size:22px;margin:0 10px 0 0;font-weight:800;letter-spacing:.2px}
   header.app .sub{color:var(--muted);font-size:13px}
   /* segmented nav */
-  nav.seg{display:flex;gap:6px;background:var(--chip);padding:5px;border-radius:12px;margin:6px 0 14px;position:sticky;top:8px;z-index:20;box-shadow:var(--shadow)}
+  nav.seg{display:flex;background:var(--chip);padding:5px;border-radius:12px;margin:6px 0 14px;position:-webkit-sticky;position:sticky;top:8px;z-index:20;box-shadow:var(--shadow)}
   nav.seg button{flex:1;border:0;background:transparent;color:var(--muted);font-weight:700;font-size:14px;padding:9px 8px;border-radius:9px;cursor:pointer}
+  nav.seg button + button{margin-left:6px}
   nav.seg button.active{background:var(--panel);color:var(--ink);box-shadow:var(--shadow)}
   .view.hidden{display:none}
   /* generic */
@@ -52,7 +68,8 @@
   .btn.ghost{background:transparent}
   .btn.danger{color:var(--bad);border-color:#e9c9c9}
   .btn.small{padding:6px 10px;font-size:13px;border-radius:8px}
-  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  .row{display:flex;flex-wrap:wrap;align-items:center;margin-bottom:-8px}
+  .row > *{margin:0 8px 8px 0}
   .spacer{flex:1}
   .muted{color:var(--muted)}
   .pill{display:inline-block;font-size:12px;font-weight:700;padding:2px 8px;border-radius:999px;background:var(--chip);color:var(--muted)}
@@ -60,19 +77,21 @@
   .pill.free{background:#f7efe2;color:var(--accent)}
   /* controls */
   .controls{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px;margin-bottom:12px;box-shadow:var(--shadow)}
-  .controls .topline{display:flex;gap:10px;align-items:center}
+  .controls .topline{display:flex;align-items:center}
+  .controls .topline > * + *{margin-left:10px}
   input[type=text],input[type=search],input[type=number],select,textarea{
     width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:#fffdf9;color:var(--ink);font-size:15px}
   textarea{min-height:70px;resize:vertical}
   .search{flex:1}
-  .chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
-  .chip{border:1px solid var(--line);background:var(--panel);color:var(--muted);font-size:12.5px;font-weight:700;padding:5px 10px;border-radius:999px;cursor:pointer}
+  .chips{display:flex;flex-wrap:wrap;margin-top:10px;margin-bottom:-6px}
+  .chip{border:1px solid var(--line);background:var(--panel);color:var(--muted);font-size:12.5px;font-weight:700;padding:5px 10px;border-radius:999px;cursor:pointer;margin:0 6px 6px 0}
   .chip.on{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
-  .selrow{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
-  .selrow > div{flex:1;min-width:130px}
+  .selrow{display:flex;margin-top:10px;flex-wrap:wrap;margin-bottom:-8px}
+  .selrow > div{flex:1;min-width:130px;margin:0 8px 8px 0}
   .selrow label{display:block;font-size:11px;font-weight:700;color:var(--muted);margin:0 0 3px 2px;text-transform:uppercase;letter-spacing:.4px}
   /* headline */
-  .headline{display:flex;gap:18px;flex-wrap:wrap;align-items:baseline;margin:2px 2px 12px}
+  .headline{display:flex;flex-wrap:wrap;align-items:baseline;margin:2px 2px 12px}
+  .headline > div{margin-right:18px}
   .headline .big{font-size:20px;font-weight:800}
   .headline .lbl{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px}
   /* grid */
@@ -80,10 +99,11 @@
   .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;overflow:hidden;box-shadow:var(--shadow);cursor:pointer;display:flex;flex-direction:column}
   .card:hover{border-color:var(--accent)}
   .card .swatch{height:90px;display:flex;align-items:flex-end;justify-content:flex-start;padding:8px;position:relative;background-size:cover;background-position:center}
-  .card .swatch img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .2s}
+  .card .swatch img{position:absolute;top:0;left:0;right:0;bottom:0;width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .2s}
   .card .swatch img.loaded{opacity:1}
-  .card .wbadge{position:relative;z-index:2;background:rgba(0,0,0,.42);color:#fff;font-size:11px;font-weight:700;padding:2px 7px;border-radius:999px;backdrop-filter:blur(2px)}
-  .card .body{padding:10px 12px 12px;display:flex;flex-direction:column;gap:4px;flex:1}
+  .card .wbadge{position:relative;z-index:2;background:rgba(0,0,0,.45);color:#fff;font-size:11px;font-weight:700;padding:2px 7px;border-radius:999px;-webkit-backdrop-filter:blur(2px);backdrop-filter:blur(2px)}
+  .card .body{padding:10px 12px 12px;display:flex;flex-direction:column;flex:1}
+  .card .body > * + *{margin-top:4px}
   .card .brandline{font-size:12px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.3px}
   .card .color{font-weight:800;font-size:15px;line-height:1.2}
   .card .meta{font-size:12.5px;color:var(--muted)}
@@ -94,17 +114,19 @@
   /* dupe / banners */
   .dupe{border:1px solid #e7d3a8;background:#fdf6e3;color:#6b5616;border-radius:10px;padding:9px 12px;font-size:13.5px;margin-top:10px}
   .dupe.lot{border-color:#e7b3a8;background:#fcefe8;color:#7a3d23}
-  .banner{border-radius:10px;padding:10px 12px;margin:0 0 12px;font-size:14px;display:flex;gap:10px;align-items:center}
+  .banner{border-radius:10px;padding:10px 12px;margin:0 0 12px;font-size:14px;display:flex;align-items:center}
+  .banner > * + *{margin-left:10px}
   .banner.warn{background:#fff4d6;border:1px solid #ecd496;color:#705600}
   .banner.bad{background:#fdeaea;border:1px solid #edc4c4;color:#7d2a2a}
   /* modal */
-  #modal{position:fixed;inset:0;background:rgba(40,28,16,.45);display:flex;align-items:flex-end;justify-content:center;z-index:50;padding:0}
+  #modal{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(40,28,16,.45);display:flex;align-items:flex-end;justify-content:center;z-index:50;padding:0}
   #modal.hidden{display:none}
-  .modal-card{background:var(--bg);width:100%;max-width:640px;max-height:92vh;overflow:auto;border-radius:18px 18px 0 0;box-shadow:0 -8px 30px rgba(0,0,0,.2)}
+  .modal-card{background:var(--bg);width:100%;max-width:640px;max-height:92vh;overflow:auto;-webkit-overflow-scrolling:touch;border-radius:18px 18px 0 0;box-shadow:0 -8px 30px rgba(0,0,0,.2)}
   @media(min-width:620px){#modal{align-items:center}.modal-card{border-radius:18px}}
-  .modal-head{position:sticky;top:0;background:var(--bg);display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--line);z-index:2}
+  .modal-head{position:-webkit-sticky;position:sticky;top:0;background:var(--bg);display:flex;align-items:center;padding:14px 16px;border-bottom:1px solid var(--line);z-index:2}
   .modal-head h2{margin:0;font-size:18px;flex:1}
-  .modal-body{padding:14px 16px}
+  .modal-head > * + *{margin-left:10px}
+  .modal-body{padding:14px 16px calc(16px + env(safe-area-inset-bottom))}
   .field{margin-bottom:12px}
   .field label{display:block;font-size:12px;font-weight:700;color:var(--muted);margin:0 0 4px 2px;text-transform:uppercase;letter-spacing:.4px}
   .field .hint{font-size:11.5px;color:var(--muted);margin-top:3px}
@@ -115,9 +137,11 @@
   .stepper button:first-child{border-radius:10px 0 0 10px}
   .stepper button:last-child{border-radius:0 10px 10px 0}
   .stepper input{border-radius:0;text-align:center;border-left:0;border-right:0}
-  .hexrow{display:flex;gap:8px;align-items:center}
+  .hexrow{display:flex;align-items:center}
+  .hexrow > * + *{margin-left:8px}
   .hexrow .sw{width:42px;height:42px;border-radius:10px;border:1px solid var(--line);flex:0 0 auto;background:repeating-conic-gradient(#ddd 0 25%, #fff 0 50%) 50%/14px 14px}
-  .photo-preview{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+  .photo-preview{display:flex;align-items:center;flex-wrap:wrap;margin-bottom:-10px}
+  .photo-preview > *{margin:0 12px 10px 0}
   .photo-preview img{width:90px;height:90px;object-fit:cover;border-radius:12px;border:1px solid var(--line);background:#eee}
   /* detail */
   .detail-photo{width:100%;max-height:260px;object-fit:cover;border-radius:12px;border:1px solid var(--line);background:#f0e9dd;margin-bottom:12px}
@@ -127,8 +151,10 @@
   .proj{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px 14px;box-shadow:var(--shadow);margin-bottom:10px}
   .proj h3{margin:0 0 2px;font-size:16px}
   .statushdr{font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin:14px 2px 8px}
-  .assignlist{display:flex;flex-direction:column;gap:6px;margin-top:8px}
-  .assignrow{display:flex;align-items:center;gap:8px;font-size:14px;padding:6px 8px;border:1px solid var(--line);border-radius:9px;background:#fffdf9}
+  .assignlist{display:flex;flex-direction:column;margin-top:8px}
+  .assignlist > * + *{margin-top:6px}
+  .assignrow{display:flex;align-items:center;font-size:14px;padding:6px 8px;border:1px solid var(--line);border-radius:9px;background:#fffdf9}
+  .assignrow > * + *{margin-left:8px}
   .swatch-mini{width:18px;height:18px;border-radius:5px;border:1px solid var(--line);flex:0 0 auto}
   /* data tab */
   .datacard{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px;box-shadow:var(--shadow);margin-bottom:14px}
@@ -144,6 +170,18 @@
   #toast.hidden{display:none}
   .assumptions{font-size:12px;color:var(--muted);background:var(--accent-soft);border:1px solid #ecd9c2;border-radius:10px;padding:10px 12px;margin-top:14px}
   .assumptions b{color:var(--accent)}
+  /* custom confirm/choice dialog — native confirm()/alert() are unreliable in iOS home-screen apps */
+  #dialog{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(40,28,16,.5);display:flex;align-items:center;justify-content:center;z-index:90;padding:24px}
+  #dialog.hidden{display:none}
+  .dialog-card{background:var(--bg);width:100%;max-width:380px;border-radius:16px;padding:18px;box-shadow:0 10px 40px rgba(0,0,0,.3)}
+  .dialog-msg{font-size:15px;margin-bottom:16px;line-height:1.45}
+  .dialog-actions{display:flex;justify-content:flex-end}
+  .dialog-actions > * + *{margin-left:8px}
+  .dialog-actions.col{display:block}
+  .dialog-actions.col > *{display:block;width:100%;margin:0 0 8px}
+  textarea.backup{min-height:140px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:11px;white-space:pre;word-break:break-all}
+  .steps{margin:0;padding-left:20px;font-size:14px}
+  .steps li{margin:0 0 6px}
 </style>
 </head>
 <body>
@@ -168,9 +206,10 @@
   </main>
 </div>
 
-<footer id="storage-meter" style="position:fixed;left:0;right:0;bottom:0;background:var(--panel);border-top:1px solid var(--line);font-size:12px;color:var(--muted);padding:6px 14px;text-align:center;z-index:15"></footer>
+<footer id="storage-meter" style="position:fixed;left:0;right:0;bottom:0;background:var(--panel);border-top:1px solid var(--line);font-size:12px;color:var(--muted);padding:6px 14px calc(6px + env(safe-area-inset-bottom));text-align:center;z-index:15"></footer>
 
 <div id="modal" class="hidden"><div class="modal-card"><div id="modal-inner"></div></div></div>
+<div id="dialog" class="hidden"><div class="dialog-card"></div></div>
 <div id="toast" class="hidden"></div>
 
 <script>
@@ -372,7 +411,7 @@
 
   // ---- photo downscale (keeps stored photos tiny & emailable) ------------
   function downscaleToJpegBlob(file, maxEdge, quality){
-    maxEdge=maxEdge||512; quality=quality||0.7;
+    maxEdge=maxEdge||400; quality=quality||0.62;   // small JPEGs: kind to a storage-tight phone
     return new Promise(function(resolve){
       let url;
       try{ url=URL.createObjectURL(file); }catch(_){ resolve(null); return; }
@@ -630,6 +669,7 @@
   // UI state
   const UI = { view:'stash', search:'', fWeight:null, fFiber:null, fBrand:'', sort:'recent', editingItemId:null };
   let pendingPhotoFile=null, removePhotoFlag=false, formPhotoPreviewUrl=null;
+  let _dialogResolver=null, _backupText='', _backupName='';
   let _gridUrls=[], _modalUrls=[];
   function revokeBucket(arr){ arr.forEach(function(u){ try{URL.revokeObjectURL(u);}catch(_){} }); arr.length=0; }
 
@@ -1010,11 +1050,24 @@
 
   /* ---------- DATA view ---------- */
   function renderData(){
+    const standalone = isStandalone();
     $('view-data').innerHTML =
-      '<div class="datacard"><h3>Backup &amp; restore (JSON)</h3>'+
-        '<p>Your data lives only in this browser. Download a backup file now and then so you never lose it. The backup includes photos and works as a transfer between computers.</p>'+
-        '<div class="row"><button class="btn primary" data-action="exportjson">⬇ Export / Backup (.json)</button>'+
-        '<button class="btn" data-action="importjson">⬆ Import (.json)</button></div>'+
+      '<div class="datacard"><h3>📲 Use it as an app on your iPhone</h3>'+
+        '<p>'+(standalone?'You\'re running this as an installed app — your stash is saved reliably. ':'Add this to your Home Screen so it works like a real app and your stash is saved reliably (Safari otherwise clears website data it hasn\'t seen in 7 days). ')+'</p>'+
+        (standalone?'' :
+          '<ol class="steps">'+
+          '<li>Open this page in <b>Safari</b> (not inside another app).</li>'+
+          '<li>Tap the <b>Share</b> button (the square with an arrow).</li>'+
+          '<li>Choose <b>Add to Home Screen</b>, then <b>Add</b>.</li>'+
+          '<li>Open it from the new Home Screen icon — from now on it runs offline and remembers your stash.</li>'+
+          '</ol>')+
+        '<p class="muted" style="margin-bottom:0">Heads-up: if the phone gets very low on free space, iOS can still clear app data — so keep a backup (below).</p>'+
+      '</div>'+
+      '<div class="datacard"><h3>Backup &amp; restore</h3>'+
+        '<p>Your stash lives only on this phone. Make a backup now and then and save it off the phone — it\'s the only thing that survives if storage gets cleared. The backup includes photos and can move your stash to another device.</p>'+
+        '<div class="row"><button class="btn primary" data-action="exportjson">⬆ Back up now</button>'+
+        '<button class="btn" data-action="importjson">Import from file</button>'+
+        '<button class="btn" data-action="importtext">Import from text</button></div>'+
         '<input type="file" id="import-file" accept="application/json,.json" style="display:none">'+
         '<div id="import-report"></div>'+
       '</div>'+
@@ -1058,31 +1111,24 @@
     a.href=url; a.download=filename; document.body.appendChild(a); a.click();
     setTimeout(function(){ document.body.removeChild(a); URL.revokeObjectURL(url); },100);
   }
-  function doExportJSON(){
-    S.exportJSON({inlinePhotos:true}).then(function(text){
-      const d=new Date(); const stamp=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
-      download('crochet-stash-backup-'+stamp+'.json', text, 'application/json');
-      toast('Backup downloaded.');
-    });
-  }
+  /* JSON backup is handled by openBackupModal() — Share-sheet first, with download/copy fallbacks. */
   function doImport(){
     const inp=$('import-file');
     inp.value='';
     inp.onchange=function(){
       const file=inp.files && inp.files[0]; if(!file) return;
-      const mode = confirm('Import mode:\n\nOK = MERGE into your current stash (recommended)\nCancel = REPLACE everything with the file') ? 'merge' : 'replace';
-      const fr=new FileReader();
-      fr.onload=function(){
-        S.importJSON(fr.result, {mode:mode}).then(function(r){
-          const rep=$('import-report');
-          rep.innerHTML='<div class="banner '+(r.errors.length?'warn':'')+'" style="margin-top:12px">'+
-            'Import ('+mode+'): <b>'+r.added+'</b> added, <b>'+r.updated+'</b> updated, <b>'+r.skipped+'</b> skipped.'+
-            (r.errors.length?('<br>'+r.errors.map(esc).join('<br>')):'')+'</div>';
-          toast('Import finished.'); renderCurrentView();
-        }).catch(function(){ toast('Import failed unexpectedly — your data was not changed.'); });
-      };
-      fr.onerror=function(){ toast('Could not read that file.'); };
-      fr.readAsText(file);
+      choiceDialog('How should this file be brought in?', [
+        {label:'Merge into my stash (recommended)', value:'merge', primary:true},
+        {label:'Replace everything', value:'replace', danger:true}
+      ]).then(function(mode){
+        if(!mode) return;
+        const fr=new FileReader();
+        fr.onload=function(){
+          S.importJSON(fr.result, {mode:mode}).then(function(r){ renderCurrentView(); reportImport(r, mode); }).catch(function(){ toast('Import failed unexpectedly — your data was not changed.'); });
+        };
+        fr.onerror=function(){ toast('Could not read that file.'); };
+        fr.readAsText(file);
+      });
     };
     inp.click();
   }
@@ -1115,13 +1161,15 @@
     });
   }
   function clearAll(){
-    if(!confirm('Delete ALL yarn, projects and photos? This cannot be undone (export a backup first if unsure).')) return;
-    const items=S.getStashItems();
-    let chain=Promise.resolve();
-    items.forEach(function(it){ chain=chain.then(function(){ return S.deleteStashItem(it.id); }); });
-    chain.then(function(){
-      S.getProjects().forEach(function(p){ S.deleteProject(p.id); });
-      toast('All data cleared.'); renderCurrentView();
+    confirmDialog('Delete ALL yarn, projects and photos? This cannot be undone. (Back up first if unsure.)', {okText:'Delete everything', danger:true}).then(function(ok){
+      if(!ok) return;
+      const items=S.getStashItems();
+      let chain=Promise.resolve();
+      items.forEach(function(it){ chain=chain.then(function(){ return S.deleteStashItem(it.id); }); });
+      chain.then(function(){
+        S.getProjects().forEach(function(p){ S.deleteProject(p.id); });
+        toast('All data cleared.'); renderCurrentView();
+      });
     });
   }
   function runSelfTest(){
@@ -1159,6 +1207,88 @@
     });
   }
 
+  /* ---------- custom dialogs (iOS-standalone-safe; native confirm() is not reliable there) ---------- */
+  function showDialog(html){ const d=$('dialog'); d.querySelector('.dialog-card').innerHTML=html; d.classList.remove('hidden'); }
+  function hideDialog(){ $('dialog').classList.add('hidden'); $('dialog').querySelector('.dialog-card').innerHTML=''; }
+  function confirmDialog(message, opts){
+    opts=opts||{};
+    return new Promise(function(resolve){
+      showDialog('<div class="dialog-msg">'+esc(message)+'</div><div class="dialog-actions">'+
+        '<button class="btn ghost" data-dlg="cancel">'+esc(opts.cancelText||'Cancel')+'</button>'+
+        '<button class="btn '+(opts.danger?'danger':'primary')+'" data-dlg="ok">'+esc(opts.okText||'OK')+'</button></div>');
+      _dialogResolver=function(v){ hideDialog(); resolve(v==='ok'); };
+    });
+  }
+  function choiceDialog(message, choices){
+    return new Promise(function(resolve){
+      showDialog('<div class="dialog-msg">'+esc(message)+'</div><div class="dialog-actions col">'+
+        choices.map(function(c){ return '<button class="btn '+(c.primary?'primary':(c.danger?'danger':''))+'" data-dlg="'+esc(c.value)+'">'+esc(c.label)+'</button>'; }).join('')+
+        '<button class="btn ghost" data-dlg="__cancel">Cancel</button></div>');
+      _dialogResolver=function(v){ hideDialog(); resolve(v==='__cancel'?null:v); };
+    });
+  }
+  $('dialog').addEventListener('click', function(e){
+    const b=e.target.closest('[data-dlg]');
+    if(b){ if(_dialogResolver){ const r=_dialogResolver; _dialogResolver=null; r(b.getAttribute('data-dlg')); } return; }
+    if(e.target===$('dialog') && _dialogResolver){ const r=_dialogResolver; _dialogResolver=null; r('__cancel'); }
+  });
+
+  /* ---------- backup (Share-sheet first; an <a download> is unreliable in iOS apps) ---------- */
+  function backupFilename(){ const d=new Date(); return 'crochet-stash-backup-'+d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')+'.json'; }
+  function openBackupModal(){
+    S.exportJSON({inlinePhotos:true}).then(function(text){
+      _backupText=text; _backupName=backupFilename();
+      openModal('Back up your stash',
+        '<p class="muted" style="margin-top:0">This file is your safety net — save it somewhere off the phone (Files / iCloud Drive, or email it to yourself). Do this now and then, because phone storage can be cleared.</p>'+
+        '<div class="row">'+
+          (navigator.share?'<button class="btn primary" data-action="backup-share">Share / Save to Files</button>':'')+
+          '<button class="btn" data-action="backup-download">Download file</button>'+
+          '<button class="btn" data-action="backup-copy">Copy text</button>'+
+        '</div>'+
+        '<div class="field" style="margin-top:14px"><label>Or select &amp; copy this text by hand</label>'+
+          '<textarea class="backup" id="backup-text" readonly>'+esc(text)+'</textarea></div>'+
+        '<div class="row"><span class="spacer"></span><button class="btn ghost" data-action="closemodal">Done</button></div>');
+    });
+  }
+  function shareBackup(){
+    try{
+      const file=new File([_backupText], _backupName, {type:'application/json'});
+      if(navigator.canShare && navigator.canShare({files:[file]})){
+        navigator.share({files:[file], title:'Crochet stash backup'}).then(function(){toast('Shared.');}).catch(function(){});
+        return;
+      }
+    }catch(_){}
+    if(navigator.share){ navigator.share({title:'Crochet stash backup', text:_backupText}).catch(function(){}); return; }
+    download(_backupName,_backupText,'application/json'); toast('Downloaded.');
+  }
+  function copyBackup(){
+    const t=_backupText;
+    if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(t).then(function(){toast('Backup copied.');}).catch(function(){ legacyCopy(); }); }
+    else legacyCopy();
+  }
+  function legacyCopy(){ const ta=$('backup-text'); if(!ta){ toast('Could not copy.'); return; } ta.focus(); ta.select(); try{ document.execCommand('copy'); toast('Backup copied.'); }catch(_){ toast('Select the text and copy it manually.'); } }
+
+  /* ---------- import from pasted text (bulletproof fallback for iOS) ---------- */
+  function openImportText(){
+    openModal('Import from text',
+      '<p class="muted" style="margin-top:0">Paste a backup\'s text below (from another phone/computer\'s "Copy text"), then choose how to bring it in.</p>'+
+      '<div class="field"><textarea class="backup" id="import-text" placeholder="Paste backup JSON here…"></textarea></div>'+
+      '<div class="row"><button class="btn primary" data-action="importtext-merge">Merge in</button>'+
+        '<button class="btn danger" data-action="importtext-replace">Replace everything</button>'+
+        '<span class="spacer"></span><button class="btn ghost" data-action="closemodal">Cancel</button></div>');
+  }
+  function runImportText(mode){
+    const ta=$('import-text'); if(!ta) return;
+    const text=ta.value;
+    if(!text.trim()){ toast('Nothing pasted yet.'); return; }
+    S.importJSON(text, {mode:mode}).then(function(r){ closeModal(); renderCurrentView(); reportImport(r, mode); }).catch(function(){ toast('Import failed — your data was not changed.'); });
+  }
+  function reportImport(r, mode){
+    const rep=$('import-report');
+    if(rep) rep.innerHTML='<div class="banner '+(r.errors.length?'warn':'')+'" style="margin-top:12px">Import ('+mode+'): <b>'+r.added+'</b> added, <b>'+r.updated+'</b> updated, <b>'+r.skipped+'</b> skipped.'+(r.errors.length?('<br>'+r.errors.map(esc).join('<br>')):'')+'</div>';
+    toast('Import finished.');
+  }
+
   /* ---------- modal + global click handling ---------- */
   function openModal(title, bodyHTML){
     $('modal-inner').innerHTML='<div class="modal-head"><h2>'+esc(title)+'</h2><button class="btn ghost small" data-action="closemodal">✕</button></div><div class="modal-body">'+bodyHTML+'</div>';
@@ -1180,7 +1310,7 @@
       case 'detail': openDetail(id); break;
       case 'edititem': closeModal(); openItemForm(id); break;
       case 'delitem':
-        if(confirm('Delete this yarn? (You can restore from a backup if needed.)')) S.deleteStashItem(id).then(function(){ closeModal(); toast('Deleted.'); renderCurrentView(); });
+        confirmDialog('Delete this yarn? (You can restore from a backup if needed.)', {okText:'Delete', danger:true}).then(function(ok){ if(ok) S.deleteStashItem(id).then(function(){ closeModal(); toast('Deleted.'); renderCurrentView(); }); });
         break;
       case 'saveitem': saveItem(false); break;
       case 'saveadd': saveItem(true); break;
@@ -1191,12 +1321,18 @@
       case 'addproj': openProjectForm(null); break;
       case 'editproj': closeModal(); openProjectForm(id); break;
       case 'saveproj': { const partial={id:id||undefined,name:$('p-name').value,patternRef:$('p-ref').value,status:$('p-status').value,notes:$('p-notes').value}; S.saveProject(partial); closeModal(); toast('Project saved.'); renderCurrentView(); break; }
-      case 'delproj': if(confirm('Delete this project? The yarn stays in your stash (it just becomes free).')){ S.deleteProject(id); toast('Project deleted.'); renderCurrentView(); } break;
+      case 'delproj': confirmDialog('Delete this project? The yarn stays in your stash (it just becomes free).', {okText:'Delete', danger:true}).then(function(ok){ if(ok){ S.deleteProject(id); toast('Project deleted.'); renderCurrentView(); } }); break;
       case 'viewproj': openProjectDetail(id); break;
       case 'assignto': S.assignStash(id, el.getAttribute('data-proj')); openProjectDetail(el.getAttribute('data-proj')); renderStorageMeter(); break;
       case 'unassign': S.assignStash(id, null); openProjectDetail(currentProjectDetailId()); renderStorageMeter(); break;
-      case 'exportjson': doExportJSON(); break;
+      case 'exportjson': openBackupModal(); break;
+      case 'backup-share': shareBackup(); break;
+      case 'backup-download': download(_backupName,_backupText,'application/json'); toast('Downloaded.'); break;
+      case 'backup-copy': copyBackup(); break;
       case 'importjson': doImport(); break;
+      case 'importtext': openImportText(); break;
+      case 'importtext-merge': runImportText('merge'); break;
+      case 'importtext-replace': runImportText('replace'); break;
       case 'exportcsv': download('crochet-stash.csv', S.exportCSV(), 'text/csv'); toast('CSV downloaded.'); break;
       case 'demo': loadDemo(); break;
       case 'cleardemo': clearAll(); break;
@@ -1215,12 +1351,25 @@
   document.addEventListener('keydown', function(e){ if(e.key==='Escape' && !$('modal').classList.contains('hidden')) closeModal(); });
 
   /* ---------- boot ---------- */
+  function isStandalone(){ try{ return (window.navigator.standalone===true) || (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches); }catch(_){ return false; } }
   function showNewerBanner(){ $('banner-area').innerHTML='<div class="banner warn">This data was saved by a newer version of the app. It still works, but to be safe, avoid overwriting and consider updating.</div>'; }
-  window.addEventListener('crochetstash:quota', function(){ $('banner-area').innerHTML='<div class="banner bad">Storage is full — your last change may not have been saved. Export a backup, then remove some photos or items.</div>'; });
+  function maybeInstallHint(){
+    if(isStandalone()) return;
+    if($('banner-area').innerHTML.trim()) return;   // don't clobber a more important banner
+    const iOS=/iPad|iPhone|iPod/.test(navigator.userAgent||'');
+    $('banner-area').innerHTML='<div class="banner warn">📲 Add this to your Home Screen so it runs like an app and saves your stash reliably. '+(iOS?'Tap <b>Share</b>, then <b>Add to Home Screen</b>.':'Use your browser menu &rarr; “Add to Home Screen / Install.”')+' Full steps are on the <b>Data</b> tab.</div>';
+  }
+  window.addEventListener('crochetstash:quota', function(){ $('banner-area').innerHTML='<div class="banner bad">Storage is full — your last change may not have been saved. Back up now, then remove some photos or items.</div>'; });
+
+  // Register the offline service worker (only over http/https — skipped on file://).
+  if('serviceWorker' in navigator && location.protocol.indexOf('http')===0){ try{ navigator.serviceWorker.register('sw.js').catch(function(){}); }catch(_){} }
+  // Best-effort: ask the browser to keep our storage (granted by heuristic on iOS 17+; harmless elsewhere).
+  try{ if(navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(function(){}); }catch(_){}
 
   S.subscribe(function(){ renderCurrentView(); });
   S.loadStore();
   if(S._isNewerVersionSeen()) showNewerBanner();
+  maybeInstallHint();
   switchView('stash');
 })();
 </script>

@@ -9,13 +9,28 @@ See **[BUILD_PLAN.md](BUILD_PLAN.md)** for the full plan and the order things ge
 
 ## What's built so far
 
-### 🧶 Stash Manager — `stash-manager.html`
+### 🧶 Stash Manager — `stash/index.html`
 
 Keep track of the yarn you own, so you stop buying duplicate skeins or running out mid-project.
 
-**How to use it:** just **double-click `stash-manager.html`** — it opens in your web browser.
-There's nothing to install, no account, no internet needed. Everything is saved on your own
-computer, inside the browser.
+**Live app:** **https://anonymous03user.github.io/crochet-thing/stash/**
+
+It's built to be used **on a phone, installed like an app**:
+
+**📲 Install on an iPhone (recommended)**
+1. Open **https://anonymous03user.github.io/crochet-thing/stash/** in **Safari**.
+2. Tap the **Share** button → **Add to Home Screen** → **Add**.
+3. Open it from the new icon. From then on it runs **offline like an app**, and your stash
+   is saved reliably (a Home-Screen app isn't subject to Safari's 7-day data cleanup).
+
+Why hosted instead of a local file: iPhones only allow "install as an app + keep data + work
+offline" for pages served over https. Nothing leaves the phone — **your yarn data is stored only
+on your device** (no account, no server, no internet after the first load). The site just delivers
+the ~60 KB app.
+
+> ⚠️ **Keep a backup.** Phone storage can still be cleared if the device runs very low on space.
+> Use **Data → Back up now** every so often and save the file off the phone (Files / iCloud, or
+> email it to yourself). That backup is the one thing that always survives.
 
 What it does:
 - **Add / edit / delete yarn** — brand, line, color, dye lot, weight, fiber, yards & grams per
