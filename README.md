@@ -61,7 +61,30 @@ If any of that doesn't match how you actually track yarn, say so and it can be c
 
 ---
 
+### 🖼️ Chart Generator — `chart/index.html`
+
+Turn a photo into a **griddable crochet chart** (graphgan / single-crochet pixel / C2C) with a
+color key, per-color stitch counts, and yarn matching.
+
+**Live app:** **https://anonymous03user.github.io/crochet-thing/chart/** (install the same way:
+Safari → Share → Add to Home Screen).
+
+What it does:
+- Pick or take a photo → set the **width in stitches** and **how many colors** → **Generate**.
+- It reduces the photo's colors to a handful of yarn colors (perceptual color matching) and draws a
+  grid chart: row 1 at the bottom, bold lines every 10, row numbers, and optional **letters for
+  black-&-white printing**.
+- **Reads your stash** (from the Stash Manager) to match each chart color to **yarn you already
+  own**, with skein estimates — plus a built-in palette fallback and a per-color "use a different
+  yarn" dropdown.
+- **Follow mode** highlights one row at a time with a plain-English readout ("Row 7: 4 cream, 2
+  navy…"). **Export** the chart + key as an image (color or B&W) or print it.
+
+> The builder doesn't crochet, so the yarn-amount math (yards per stitch), the C2C "beta" mode, and a
+> few other numbers are **flagged guesses you can edit** — see
+> [docs/research-prompts/chart-generator.md](docs/research-prompts/chart-generator.md) for the
+> questions to confirm. Always check colors against real yarn in good light.
+
 ## Coming next (see the build plan)
 
-Image-to-Chart Generator, Substitution + Yardage Calculator, Pattern Companion (AI), and an
-email Deal Tracker.
+Substitution + Yardage Calculator, Pattern Companion (AI), and an email Deal Tracker.
