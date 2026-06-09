@@ -2,22 +2,45 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Crochet Toolkit</title>
 <meta name="theme-color" content="#b5651d">
-<!-- The toolkit's only finished tool today is the Stash Manager — send people straight there. -->
-<meta http-equiv="refresh" content="0; url=stash/">
-<link rel="canonical" href="stash/">
+<meta name="color-scheme" content="light">
 <style>
-  body{font:16px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;background:#fbf7f0;color:#2e2a26;margin:0;
-    display:flex;min-height:100vh;align-items:center;justify-content:center;text-align:center;padding:24px}
-  a{color:#b5651d;font-weight:700}
+  body{font:16px/1.6 system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;background:#fbf7f0;color:#2e2a26;margin:0;
+    padding:calc(28px + env(safe-area-inset-top)) calc(18px + env(safe-area-inset-right)) calc(28px + env(safe-area-inset-bottom)) calc(18px + env(safe-area-inset-left))}
+  .wrap{max-width:560px;margin:0 auto}
+  h1{font-size:24px;margin:0 0 4px}
+  p.lead{color:#857a6d;margin:0 0 22px}
+  a.tool{display:flex;align-items:center;text-decoration:none;color:inherit;background:#fff;border:1px solid #e7ddcf;border-radius:16px;padding:16px;margin-bottom:14px;box-shadow:0 1px 3px rgba(60,40,20,.08),0 6px 18px rgba(60,40,20,.06)}
+  a.tool:hover{border-color:#b5651d}
+  a.tool img{width:54px;height:54px;border-radius:13px;margin-right:14px;flex:0 0 auto}
+  a.tool .t{font-size:18px;font-weight:800}
+  a.tool .d{font-size:13.5px;color:#857a6d}
+  .soon{opacity:.55}
+  .note{font-size:12.5px;color:#857a6d;margin-top:18px}
 </style>
 </head>
 <body>
-  <div>
+  <div class="wrap">
     <h1>🧶 Crochet Toolkit</h1>
-    <p>Opening the <a href="stash/">Stash Manager</a>…</p>
+    <p class="lead">A little set of crochet tools. Everything runs on your device — add a tool to your Home Screen to use it like an app, offline.</p>
+
+    <a class="tool" href="stash/">
+      <img src="stash/icons/icon-192.png" alt="">
+      <span><span class="t">Stash Manager</span><br><span class="d">Track the yarn you own — search, projects, backups.</span></span>
+    </a>
+
+    <a class="tool" href="chart/">
+      <img src="chart/icons/icon-192.png" alt="">
+      <span><span class="t">Chart Generator</span><br><span class="d">Turn a photo into a griddable crochet chart + yarn-color key.</span></span>
+    </a>
+
+    <div class="soon" style="display:flex;align-items:center;background:#fff;border:1px dashed #e7ddcf;border-radius:16px;padding:16px">
+      <span><span class="t" style="font-size:18px;font-weight:800">More coming</span><br><span class="d" style="font-size:13.5px;color:#857a6d">Substitution calculator · pattern companion · deal tracker.</span></span>
+    </div>
+
+    <p class="note">Tip on iPhone: open a tool in Safari, tap <b>Share</b> → <b>Add to Home Screen</b>. Your data stays on the phone — back it up now and then from each tool.</p>
   </div>
 </body>
 </html>
