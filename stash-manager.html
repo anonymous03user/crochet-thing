@@ -1,0 +1,1228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Crochet Toolkit — Stash Manager</title>
+<!--
+  Crochet Toolkit · Module 2 · Stash Manager  (v1, single self-contained file)
+  ------------------------------------------------------------------------------
+  Open this file in any modern browser (double-click it). Everything — the code,
+  the styles, and your saved yarn — lives on YOUR computer. No internet, no account.
+
+  HOW YOUR DATA IS STORED (plain English):
+    • The yarn list and projects are saved as one block of text in the browser's
+      "localStorage" under the key  crochetToolkit.stash.v1.
+    • Photos are saved separately (as small JPEGs) in the browser's "IndexedDB",
+      because photos are big and would otherwise fill up the small text storage.
+    • Other future tools in this toolkit can READ your stash just by reading that
+      one text key — that's the whole point of keeping it simple.
+
+  IMPORTANT SAFETY NOTE: browser storage can be wiped if you clear browsing data.
+  Use the DATA tab's "Export / Backup" button now and then to save a real file.
+-->
+<style>
+  :root{
+    --bg:#fbf7f0; --panel:#ffffff; --ink:#2e2a26; --muted:#8a7f72; --line:#e7ddcf;
+    --accent:#b5651d; --accent-soft:#f3e3d2; --good:#3f7d4e; --warn:#b07b00; --bad:#b23b3b;
+    --chip:#f1e9dd; --shadow:0 1px 3px rgba(60,40,20,.08), 0 6px 18px rgba(60,40,20,.06);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    font:16px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    color:var(--ink); background:var(--bg);
+    -webkit-text-size-adjust:100%;
+  }
+  .wrap{max-width:1000px;margin:0 auto;padding:0 14px 90px}
+  header.app{padding:18px 0 8px;display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+  header.app h1{font-size:22px;margin:0;font-weight:800;letter-spacing:.2px}
+  header.app .sub{color:var(--muted);font-size:13px}
+  /* segmented nav */
+  nav.seg{display:flex;gap:6px;background:var(--chip);padding:5px;border-radius:12px;margin:6px 0 14px;position:sticky;top:8px;z-index:20;box-shadow:var(--shadow)}
+  nav.seg button{flex:1;border:0;background:transparent;color:var(--muted);font-weight:700;font-size:14px;padding:9px 8px;border-radius:9px;cursor:pointer}
+  nav.seg button.active{background:var(--panel);color:var(--ink);box-shadow:var(--shadow)}
+  .view.hidden{display:none}
+  /* generic */
+  button{font-family:inherit}
+  .btn{border:1px solid var(--line);background:var(--panel);color:var(--ink);padding:9px 14px;border-radius:10px;font-weight:700;font-size:14px;cursor:pointer}
+  .btn:hover{border-color:var(--accent)}
+  .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  .btn.primary:hover{filter:brightness(1.05)}
+  .btn.ghost{background:transparent}
+  .btn.danger{color:var(--bad);border-color:#e9c9c9}
+  .btn.small{padding:6px 10px;font-size:13px;border-radius:8px}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  .spacer{flex:1}
+  .muted{color:var(--muted)}
+  .pill{display:inline-block;font-size:12px;font-weight:700;padding:2px 8px;border-radius:999px;background:var(--chip);color:var(--muted)}
+  .pill.reserved{background:#eef3ee;color:var(--good)}
+  .pill.free{background:#f7efe2;color:var(--accent)}
+  /* controls */
+  .controls{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px;margin-bottom:12px;box-shadow:var(--shadow)}
+  .controls .topline{display:flex;gap:10px;align-items:center}
+  input[type=text],input[type=search],input[type=number],select,textarea{
+    width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:#fffdf9;color:var(--ink);font-size:15px}
+  textarea{min-height:70px;resize:vertical}
+  .search{flex:1}
+  .chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+  .chip{border:1px solid var(--line);background:var(--panel);color:var(--muted);font-size:12.5px;font-weight:700;padding:5px 10px;border-radius:999px;cursor:pointer}
+  .chip.on{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
+  .selrow{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+  .selrow > div{flex:1;min-width:130px}
+  .selrow label{display:block;font-size:11px;font-weight:700;color:var(--muted);margin:0 0 3px 2px;text-transform:uppercase;letter-spacing:.4px}
+  /* headline */
+  .headline{display:flex;gap:18px;flex-wrap:wrap;align-items:baseline;margin:2px 2px 12px}
+  .headline .big{font-size:20px;font-weight:800}
+  .headline .lbl{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px}
+  /* grid */
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;overflow:hidden;box-shadow:var(--shadow);cursor:pointer;display:flex;flex-direction:column}
+  .card:hover{border-color:var(--accent)}
+  .card .swatch{height:90px;display:flex;align-items:flex-end;justify-content:flex-start;padding:8px;position:relative;background-size:cover;background-position:center}
+  .card .swatch img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .2s}
+  .card .swatch img.loaded{opacity:1}
+  .card .wbadge{position:relative;z-index:2;background:rgba(0,0,0,.42);color:#fff;font-size:11px;font-weight:700;padding:2px 7px;border-radius:999px;backdrop-filter:blur(2px)}
+  .card .body{padding:10px 12px 12px;display:flex;flex-direction:column;gap:4px;flex:1}
+  .card .brandline{font-size:12px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.3px}
+  .card .color{font-weight:800;font-size:15px;line-height:1.2}
+  .card .meta{font-size:12.5px;color:var(--muted)}
+  .card .foot{display:flex;justify-content:space-between;align-items:center;margin-top:auto;padding-top:6px}
+  .card .qty{font-weight:800;font-size:14px}
+  .empty{background:var(--panel);border:1px dashed var(--line);border-radius:14px;padding:34px 18px;text-align:center;color:var(--muted)}
+  .empty h3{color:var(--ink);margin:0 0 6px}
+  /* dupe / banners */
+  .dupe{border:1px solid #e7d3a8;background:#fdf6e3;color:#6b5616;border-radius:10px;padding:9px 12px;font-size:13.5px;margin-top:10px}
+  .dupe.lot{border-color:#e7b3a8;background:#fcefe8;color:#7a3d23}
+  .banner{border-radius:10px;padding:10px 12px;margin:0 0 12px;font-size:14px;display:flex;gap:10px;align-items:center}
+  .banner.warn{background:#fff4d6;border:1px solid #ecd496;color:#705600}
+  .banner.bad{background:#fdeaea;border:1px solid #edc4c4;color:#7d2a2a}
+  /* modal */
+  #modal{position:fixed;inset:0;background:rgba(40,28,16,.45);display:flex;align-items:flex-end;justify-content:center;z-index:50;padding:0}
+  #modal.hidden{display:none}
+  .modal-card{background:var(--bg);width:100%;max-width:640px;max-height:92vh;overflow:auto;border-radius:18px 18px 0 0;box-shadow:0 -8px 30px rgba(0,0,0,.2)}
+  @media(min-width:620px){#modal{align-items:center}.modal-card{border-radius:18px}}
+  .modal-head{position:sticky;top:0;background:var(--bg);display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--line);z-index:2}
+  .modal-head h2{margin:0;font-size:18px;flex:1}
+  .modal-body{padding:14px 16px}
+  .field{margin-bottom:12px}
+  .field label{display:block;font-size:12px;font-weight:700;color:var(--muted);margin:0 0 4px 2px;text-transform:uppercase;letter-spacing:.4px}
+  .field .hint{font-size:11.5px;color:var(--muted);margin-top:3px}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+  .stepper{display:flex;align-items:stretch;gap:0}
+  .stepper button{width:42px;border:1px solid var(--line);background:var(--panel);font-size:18px;font-weight:800;cursor:pointer}
+  .stepper button:first-child{border-radius:10px 0 0 10px}
+  .stepper button:last-child{border-radius:0 10px 10px 0}
+  .stepper input{border-radius:0;text-align:center;border-left:0;border-right:0}
+  .hexrow{display:flex;gap:8px;align-items:center}
+  .hexrow .sw{width:42px;height:42px;border-radius:10px;border:1px solid var(--line);flex:0 0 auto;background:repeating-conic-gradient(#ddd 0 25%, #fff 0 50%) 50%/14px 14px}
+  .photo-preview{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+  .photo-preview img{width:90px;height:90px;object-fit:cover;border-radius:12px;border:1px solid var(--line);background:#eee}
+  /* detail */
+  .detail-photo{width:100%;max-height:260px;object-fit:cover;border-radius:12px;border:1px solid var(--line);background:#f0e9dd;margin-bottom:12px}
+  .kv{display:grid;grid-template-columns:130px 1fr;gap:6px 12px;font-size:14.5px}
+  .kv .k{color:var(--muted);font-weight:700;font-size:12.5px;text-transform:uppercase;letter-spacing:.3px;align-self:center}
+  /* projects */
+  .proj{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px 14px;box-shadow:var(--shadow);margin-bottom:10px}
+  .proj h3{margin:0 0 2px;font-size:16px}
+  .statushdr{font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin:14px 2px 8px}
+  .assignlist{display:flex;flex-direction:column;gap:6px;margin-top:8px}
+  .assignrow{display:flex;align-items:center;gap:8px;font-size:14px;padding:6px 8px;border:1px solid var(--line);border-radius:9px;background:#fffdf9}
+  .swatch-mini{width:18px;height:18px;border-radius:5px;border:1px solid var(--line);flex:0 0 auto}
+  /* data tab */
+  .datacard{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px;box-shadow:var(--shadow);margin-bottom:14px}
+  .datacard h3{margin:0 0 6px;font-size:16px}
+  .datacard p{margin:0 0 12px;color:var(--muted);font-size:13.5px}
+  .meter{height:10px;border-radius:999px;background:var(--chip);overflow:hidden;margin:8px 0 6px}
+  .meter > i{display:block;height:100%;background:var(--accent);width:0%}
+  .testline{font-size:13.5px;padding:4px 0;border-bottom:1px dashed var(--line)}
+  .testline .ok{color:var(--good);font-weight:800}
+  .testline .no{color:var(--bad);font-weight:800}
+  /* toast */
+  #toast{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);background:#2e2a26;color:#fff;padding:11px 16px;border-radius:10px;font-size:14px;box-shadow:0 6px 20px rgba(0,0,0,.25);z-index:80;max-width:90vw;text-align:center}
+  #toast.hidden{display:none}
+  .assumptions{font-size:12px;color:var(--muted);background:var(--accent-soft);border:1px solid #ecd9c2;border-radius:10px;padding:10px 12px;margin-top:14px}
+  .assumptions b{color:var(--accent)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="app">
+    <h1>🧶 Stash Manager</h1>
+    <span class="sub">Crochet Toolkit · keep track of the yarn you own</span>
+  </header>
+
+  <nav class="seg" role="tablist">
+    <button data-action="view" data-id="stash" class="active">Stash</button>
+    <button data-action="view" data-id="projects">Projects</button>
+    <button data-action="view" data-id="data">Data</button>
+  </nav>
+
+  <div id="banner-area"></div>
+
+  <main>
+    <section id="view-stash" class="view"></section>
+    <section id="view-projects" class="view hidden"></section>
+    <section id="view-data" class="view hidden"></section>
+  </main>
+</div>
+
+<footer id="storage-meter" style="position:fixed;left:0;right:0;bottom:0;background:var(--panel);border-top:1px solid var(--line);font-size:12px;color:var(--muted);padding:6px 14px;text-align:center;z-index:15"></footer>
+
+<div id="modal" class="hidden"><div class="modal-card"><div id="modal-inner"></div></div></div>
+<div id="toast" class="hidden"></div>
+
+<script>
+"use strict";
+/* ==========================================================================
+   PART 1 — THE SHARED STORE  (window.CrochetStash)
+   This is the "single source of truth" for yarn data. Other tools in the
+   toolkit can read it. Reads are instant (synchronous); only photos are async.
+   ========================================================================== */
+(function(){
+
+  // ---- The stable contract: keys other modules rely on. Never rename lightly.
+  const SCHEMA_VERSION = 1;
+  const STASH_STORE_KEY = 'crochetToolkit.stash.v1';
+  const EXPORT_FORMAT   = 'crochet-toolkit-stash';
+  const STORAGE_IDS = { textKey: STASH_STORE_KEY, photoDb:'CrochetToolkitDB', photoStore:'photos', channel:'crochetToolkit' };
+  const WEIGHT_LABELS = {0:'Lace',1:'Super Fine',2:'Fine',3:'Light',4:'Medium',5:'Bulky',6:'Super Bulky',7:'Jumbo'};
+
+  // ---- tiny helpers ------------------------------------------------------
+  function uuid(){
+    try{ if(self.crypto && crypto.randomUUID) return crypto.randomUUID(); }catch(_){}
+    // fallback for old browsers / some file:// contexts
+    return 'id-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,10);
+  }
+  function nowIso(){ try{ return new Date().toISOString(); }catch(_){ return ''; } }
+  function toStr(x, max){ if(x==null) return ''; let s=String(x).trim(); if(max && s.length>max) s=s.slice(0,max); return s; }
+  function toNumOrNull(x){ if(x===''||x==null) return null; const n=Number(x); return Number.isFinite(n)?n:null; }
+  function toNonNegOrNull(x){ const n=toNumOrNull(x); if(n==null) return null; return n<0?0:n; }
+  function normalizeHex(x){
+    if(typeof x!=='string') return null;
+    let s=x.trim(); if(!s) return null;
+    if(s[0]!=='#') s='#'+s;
+    if(/^#[0-9a-fA-F]{3}$/.test(s)) s='#'+s[1]+s[1]+s[2]+s[2]+s[3]+s[3];
+    return /^#[0-9a-fA-F]{6}$/.test(s) ? s.toLowerCase() : null;
+  }
+
+  // ---- validation: "coerce and keep", never throw away a whole record -----
+  // Numbers we don't know become null (NOT 0) so "unknown yardage" is honest.
+  function coerceStashItem(raw, opts){
+    opts = opts||{}; const generateId = opts.generateId!==false;
+    raw = (raw && typeof raw==='object') ? raw : {};
+    let id = (typeof raw.id==='string' && raw.id.trim()) ? raw.id.trim() : (generateId ? uuid() : '');
+    let weight = toNumOrNull(raw.weightCategory);
+    if(weight!=null){ weight = Math.round(weight); if(weight<0 || weight>7) weight=null; }
+    let skeins = toNonNegOrNull(raw.skeinsOnHand); if(skeins==null) skeins=0; skeins=Math.round(skeins);
+    let photo='';
+    if(typeof raw.photoDataUrl==='string' && (raw.photoDataUrl.indexOf('data:image/')===0 || raw.photoDataUrl.indexOf('idb:')===0)) photo=raw.photoDataUrl;
+    return {
+      id: id,
+      brand: toStr(raw.brand,200),
+      line: toStr(raw.line,200),
+      colorName: toStr(raw.colorName,200),
+      colorHex: normalizeHex(raw.colorHex),
+      dyeLot: toStr(raw.dyeLot,100),
+      weightCategory: weight,
+      fiber: toStr(raw.fiber,300),
+      yardsPerSkein: toNonNegOrNull(raw.yardsPerSkein),
+      gramsPerSkein: toNonNegOrNull(raw.gramsPerSkein),
+      skeinsOnHand: skeins,
+      gaugeStitches: toNonNegOrNull(raw.gaugeStitches),
+      gaugeRows: toNonNegOrNull(raw.gaugeRows),
+      hookSizeMm: toNonNegOrNull(raw.hookSizeMm),
+      photoDataUrl: photo,
+      assignedProjectId: (typeof raw.assignedProjectId==='string' && raw.assignedProjectId.trim()) ? raw.assignedProjectId.trim() : null,
+      notes: toStr(raw.notes,5000)
+    };
+  }
+  function coerceProject(raw){
+    raw = (raw && typeof raw==='object') ? raw : {};
+    const id = (typeof raw.id==='string' && raw.id.trim()) ? raw.id.trim() : uuid();
+    const status = (raw.status==='queued'||raw.status==='wip'||raw.status==='done') ? raw.status : 'queued';
+    return {
+      id: id,
+      name: toStr(raw.name,200) || 'Untitled project',
+      patternRef: toStr(raw.patternRef,500),
+      status: status,
+      assignedStashIds: [],                 // derived on load from items (authoritative side)
+      notes: toStr(raw.notes,5000),
+      startedAt: toStr(raw.startedAt,40) || null,
+      finishedAt: toStr(raw.finishedAt,40) || null
+    };
+  }
+
+  // ---- schema migration: forward-only chain. v1 has none yet, but the seam
+  //      exists and is exercised by the self-test (v0 object -> v1).
+  const MIGRATIONS = {
+    // 1: function(store){ /* example future migration to v1 */ return store; }
+  };
+  function migrate(store){
+    let v = Number(store.schemaVersion)||0;
+    while(v < SCHEMA_VERSION){
+      const fn = MIGRATIONS[v+1];
+      if(typeof fn==='function') store = fn(store) || store;
+      v++; store.schemaVersion = v;
+    }
+    return store;
+  }
+
+  let _newerVersionSeen = false;   // a file/store written by a future version
+  let _memStore = null;            // in-memory authoritative copy
+
+  // Rebuild the two-way project<->item link from the ONE source of truth
+  // (item.assignedProjectId). Also repairs links that point at deleted projects.
+  function rebuildDerived(store){
+    const ids = new Set(store.projects.map(function(p){return p.id;}));
+    store.items.forEach(function(it){ if(it.assignedProjectId && !ids.has(it.assignedProjectId)) it.assignedProjectId=null; });
+    const byP = {}; store.projects.forEach(function(p){ byP[p.id]=[]; });
+    store.items.forEach(function(it){ if(it.assignedProjectId && byP[it.assignedProjectId]) byP[it.assignedProjectId].push(it.id); });
+    store.projects.forEach(function(p){ p.assignedStashIds = byP[p.id] || []; });
+  }
+
+  function normalizeStore(parsed){
+    const src = (parsed && typeof parsed==='object') ? parsed : {};
+    const incomingV = Number(src.schemaVersion)||0;
+    if(incomingV > SCHEMA_VERSION) _newerVersionSeen = true;
+    let store = migrate({
+      schemaVersion: incomingV,
+      items: Array.isArray(src.items)?src.items:[],
+      projects: Array.isArray(src.projects)?src.projects:[],
+      settings: (src.settings && typeof src.settings==='object')?src.settings:{}
+    });
+    const projects = store.projects.map(coerceProject);
+    const items = store.items.map(function(it){ return coerceStashItem(it,{generateId:true}); });
+    const out = { schemaVersion: Math.max(SCHEMA_VERSION, incomingV), items: items, projects: projects, settings: store.settings };
+    rebuildDerived(out);
+    return out;
+  }
+
+  // CONTRACT: synchronous, never throws. Returns a guaranteed-valid store.
+  function loadStore(){
+    let parsed=null;
+    try{ const raw=localStorage.getItem(STASH_STORE_KEY); if(raw) parsed=JSON.parse(raw); }catch(_){ parsed=null; }
+    return normalizeStore(parsed);
+  }
+  function currentStore(){ if(!_memStore) _memStore=loadStore(); return _memStore; }
+  function cloneStore(s){
+    return {
+      schemaVersion:s.schemaVersion,
+      items:s.items.map(function(x){return Object.assign({},x);}),
+      projects:s.projects.map(function(p){return Object.assign({},p,{assignedStashIds:p.assignedStashIds.slice()});}),
+      settings:Object.assign({},s.settings)
+    };
+  }
+
+  // ---- subscribers (live updates within this tab AND across tabs) ---------
+  const _subs = new Set();
+  function notifySubscribers(store){ _subs.forEach(function(cb){ try{cb(store);}catch(_){} }); }
+  function subscribe(cb){
+    _subs.add(cb);
+    function onStorage(e){ if(e.key===STASH_STORE_KEY){ _memStore=loadStore(); try{cb(_memStore);}catch(_){} } }
+    window.addEventListener('storage', onStorage);   // fires in OTHER tabs
+    return function unsubscribe(){ _subs.delete(cb); window.removeEventListener('storage', onStorage); };
+  }
+
+  // ---- the ONE write chokepoint (quota guard lives here) ------------------
+  function commit(next){
+    rebuildDerived(next);
+    const envelope = { schemaVersion:SCHEMA_VERSION, items:next.items, projects:next.projects, settings:next.settings };
+    try{
+      localStorage.setItem(STASH_STORE_KEY, JSON.stringify(envelope));
+    }catch(e){
+      // Most likely the storage is full. We did NOT change _memStore, so the
+      // in-memory state stays consistent with what's actually on disk.
+      window.dispatchEvent(new CustomEvent('crochetstash:quota', {detail:e}));
+      throw e;
+    }
+    _memStore = next;
+    notifySubscribers(next);   // same-tab listeners (the native 'storage' event does NOT fire here)
+  }
+
+  // ---- IndexedDB photo store (the only async part) ------------------------
+  let _idbPromise=null;
+  function openPhotoDb(){
+    if(_idbPromise) return _idbPromise;
+    _idbPromise = new Promise(function(resolve){
+      let req;
+      try{ if(!self.indexedDB){ resolve(null); return; } req=indexedDB.open(STORAGE_IDS.photoDb,1); }
+      catch(_){ resolve(null); return; }
+      req.onupgradeneeded=function(){ const db=req.result; if(!db.objectStoreNames.contains(STORAGE_IDS.photoStore)) db.createObjectStore(STORAGE_IDS.photoStore); };
+      req.onsuccess=function(){ resolve(req.result); };
+      req.onerror=function(){ resolve(null); };
+      req.onblocked=function(){ resolve(null); };
+    });
+    return _idbPromise;
+  }
+  function putPhotoBlob(id, blob){ return openPhotoDb().then(function(db){ if(!db) return false; return new Promise(function(res){ try{ const tx=db.transaction(STORAGE_IDS.photoStore,'readwrite'); tx.objectStore(STORAGE_IDS.photoStore).put(blob,id); tx.oncomplete=function(){res(true);}; tx.onerror=function(){res(false);}; tx.onabort=function(){res(false);}; }catch(_){res(false);} }); }); }
+  function getPhotoBlob(id){ return openPhotoDb().then(function(db){ if(!db) return null; return new Promise(function(res){ try{ const tx=db.transaction(STORAGE_IDS.photoStore,'readonly'); const r=tx.objectStore(STORAGE_IDS.photoStore).get(id); r.onsuccess=function(){res(r.result||null);}; r.onerror=function(){res(null);}; }catch(_){res(null);} }); }); }
+  function deletePhotoBlob(id){ return openPhotoDb().then(function(db){ if(!db) return; return new Promise(function(res){ try{ const tx=db.transaction(STORAGE_IDS.photoStore,'readwrite'); tx.objectStore(STORAGE_IDS.photoStore).delete(id); tx.oncomplete=function(){res();}; tx.onerror=function(){res();}; }catch(_){res();} }); }); }
+
+  // CONTRACT: resolve a photo reference to a temporary URL for display.
+  // Caller must URL.revokeObjectURL() it when done to avoid leaks.
+  function getPhotoUrl(itemOrRef){
+    let ref = typeof itemOrRef==='string' ? itemOrRef : (itemOrRef && itemOrRef.photoDataUrl);
+    if(!ref) return Promise.resolve(null);
+    if(ref.indexOf('data:')===0) return Promise.resolve(ref);            // already inline (e.g. mid-import)
+    if(ref.indexOf('idb:')===0) return getPhotoBlob(ref.slice(4)).then(function(b){ return b?URL.createObjectURL(b):null; });
+    return Promise.resolve(null);
+  }
+
+  // ---- photo downscale (keeps stored photos tiny & emailable) ------------
+  function downscaleToJpegBlob(file, maxEdge, quality){
+    maxEdge=maxEdge||512; quality=quality||0.7;
+    return new Promise(function(resolve){
+      let url;
+      try{ url=URL.createObjectURL(file); }catch(_){ resolve(null); return; }
+      const img=new Image();
+      img.onload=function(){
+        try{
+          const w0=img.naturalWidth||img.width, h0=img.naturalHeight||img.height;
+          if(!w0||!h0){ URL.revokeObjectURL(url); resolve(null); return; }
+          const scale=Math.min(1, maxEdge/Math.max(w0,h0));
+          const w=Math.max(1,Math.round(w0*scale)), h=Math.max(1,Math.round(h0*scale));
+          const c=document.createElement('canvas'); c.width=w; c.height=h;
+          c.getContext('2d').drawImage(img,0,0,w,h);
+          c.toBlob(function(blob){ URL.revokeObjectURL(url); resolve(blob||null); },'image/jpeg',quality);
+        }catch(_){ try{URL.revokeObjectURL(url);}catch(__){} resolve(null); }
+      };
+      img.onerror=function(){ try{URL.revokeObjectURL(url);}catch(__){} resolve(null); };
+      img.src=url;
+    });
+  }
+
+  // ---- reads -------------------------------------------------------------
+  function getStashItems(){ return currentStore().items.map(function(i){return Object.assign({},i);}); }
+  function getStashItem(id){ const it=currentStore().items.find(function(i){return i.id===id;}); return it?Object.assign({},it):null; }
+  function getProjects(){ return currentStore().projects.map(function(p){return Object.assign({},p,{assignedStashIds:p.assignedStashIds.slice()});}); }
+  function getProject(id){ const p=currentStore().projects.find(function(x){return x.id===id;}); return p?Object.assign({},p,{assignedStashIds:p.assignedStashIds.slice()}):null; }
+
+  // CONTRACT: one place that computes all the rollups, so every view agrees.
+  function getStats(items){
+    const all = items || currentStore().items;
+    let totalYards=0, totalGrams=0, yardsReserved=0, skeinCount=0; const byWeight={};
+    all.forEach(function(it){
+      const sk = it.skeinsOnHand||0; skeinCount += sk;
+      const y = (it.yardsPerSkein!=null) ? it.yardsPerSkein*sk : 0;
+      const g = (it.gramsPerSkein!=null) ? it.gramsPerSkein*sk : 0;
+      totalYards+=y; totalGrams+=g;
+      if(it.assignedProjectId) yardsReserved+=y;
+      const wk = (it.weightCategory==null)?'unknown':it.weightCategory;
+      byWeight[wk]=(byWeight[wk]||0)+1;
+    });
+    return { totalYards:totalYards, totalGrams:totalGrams, yardsReserved:yardsReserved, yardsFree:totalYards-yardsReserved, itemCount:all.length, skeinCount:skeinCount, byWeight:byWeight };
+  }
+
+  // ---- writes ------------------------------------------------------------
+  // Single path for create + update. Pass a File/Blob to set a photo, null to
+  // remove it, or leave undefined to keep the current photo.
+  function upsertStashItem(partial, photo){
+    const store = cloneStore(currentStore());
+    const haveId = partial && typeof partial.id==='string' && partial.id;
+    const idx = haveId ? store.items.findIndex(function(i){return i.id===partial.id;}) : -1;
+    const base = idx>=0 ? Object.assign({},store.items[idx]) : {};
+    const item = coerceStashItem(Object.assign({},base,partial), {generateId:true});
+
+    const finish = function(){
+      if(idx>=0) store.items[idx]=item; else store.items.push(item);
+      commit(store);
+      return item;
+    };
+
+    if(photo instanceof Blob){
+      const isImage = photo.type && photo.type.indexOf('image/')===0;
+      const prep = isImage ? downscaleToJpegBlob(photo) : Promise.resolve(photo);
+      return prep.then(function(blob){
+        if(!blob){ item.photoDataUrl=''; return finish(); }
+        const photoId = (base.photoDataUrl && base.photoDataUrl.indexOf('idb:')===0) ? base.photoDataUrl.slice(4) : uuid();
+        return putPhotoBlob(photoId, blob).then(function(ok){
+          item.photoDataUrl = ok ? ('idb:'+photoId) : '';   // text saves even if the photo couldn't
+          return finish();
+        });
+      });
+    }
+    if(photo===null){
+      const old = base.photoDataUrl;
+      const del = (old && old.indexOf('idb:')===0) ? deletePhotoBlob(old.slice(4)) : Promise.resolve();
+      return del.then(function(){ item.photoDataUrl=''; return finish(); });
+    }
+    // photo undefined -> keep whatever the merged item already had
+    return Promise.resolve(finish());
+  }
+
+  function deleteStashItem(id){
+    const store=cloneStore(currentStore());
+    const idx=store.items.findIndex(function(i){return i.id===id;});
+    if(idx<0) return Promise.resolve(false);
+    const it=store.items[idx];
+    const del=(it.photoDataUrl && it.photoDataUrl.indexOf('idb:')===0) ? deletePhotoBlob(it.photoDataUrl.slice(4)) : Promise.resolve();
+    return del.then(function(){ store.items.splice(idx,1); commit(store); return true; });
+  }
+
+  function saveProject(partial){
+    const store=cloneStore(currentStore());
+    const haveId = partial && typeof partial.id==='string' && partial.id;
+    const idx = haveId ? store.projects.findIndex(function(p){return p.id===partial.id;}) : -1;
+    const base = idx>=0 ? Object.assign({},store.projects[idx]) : {};
+    const prev = base.status;
+    const proj = coerceProject(Object.assign({},base,partial));
+    if(proj.status==='wip'  && prev!=='wip'  && !proj.startedAt)  proj.startedAt  = nowIso();
+    if(proj.status==='done' && prev!=='done' && !proj.finishedAt) proj.finishedAt = nowIso();
+    if(idx>=0) store.projects[idx]=proj; else store.projects.push(proj);
+    commit(store);
+    return proj;
+  }
+  function deleteProject(id){
+    const store=cloneStore(currentStore());
+    const idx=store.projects.findIndex(function(p){return p.id===id;});
+    if(idx<0) return false;
+    store.projects.splice(idx,1);
+    store.items.forEach(function(it){ if(it.assignedProjectId===id) it.assignedProjectId=null; });
+    commit(store);
+    return true;
+  }
+  // The ONE sanctioned way to reserve/free yarn.
+  function assignStash(itemId, projectId){
+    const store=cloneStore(currentStore());
+    const it=store.items.find(function(i){return i.id===itemId;});
+    if(!it) return;
+    if(projectId && !store.projects.some(function(p){return p.id===projectId;})) projectId=null;
+    it.assignedProjectId = projectId || null;
+    commit(store);
+  }
+
+  // ---- portability -------------------------------------------------------
+  function blobToDataUrl(blob){ return new Promise(function(res){ const fr=new FileReader(); fr.onload=function(){res(fr.result);}; fr.onerror=function(){res('');}; fr.readAsDataURL(blob); }); }
+  function dataUrlToBlob(dataUrl){
+    try{
+      const i=dataUrl.indexOf(','); const head=dataUrl.slice(0,i), b64=dataUrl.slice(i+1);
+      const mime=(head.match(/data:(.*?);base64/)||[])[1]||'image/jpeg';
+      const bin=atob(b64); const arr=new Uint8Array(bin.length);
+      for(let k=0;k<bin.length;k++) arr[k]=bin.charCodeAt(k);
+      return new Blob([arr],{type:mime});
+    }catch(_){ return null; }
+  }
+
+  function exportJSON(opts){
+    opts=opts||{}; const inlinePhotos = opts.inlinePhotos!==false;
+    const store=currentStore();
+    const jobs = store.items.map(function(it){
+      const copy=Object.assign({},it);
+      if(it.photoDataUrl && it.photoDataUrl.indexOf('idb:')===0){
+        if(inlinePhotos) return getPhotoBlob(it.photoDataUrl.slice(4)).then(function(b){ return b?blobToDataUrl(b):''; }).then(function(d){ copy.photoDataUrl=d||''; return copy; });
+        copy.photoDataUrl='';
+      }
+      return Promise.resolve(copy);
+    });
+    return Promise.all(jobs).then(function(items){
+      const envelope={ format:EXPORT_FORMAT, schemaVersion:SCHEMA_VERSION, exportedAt:nowIso(), items:items, projects:store.projects.map(function(p){return Object.assign({},p);}) };
+      return JSON.stringify(envelope,null,2);
+    });
+  }
+
+  // Defensive importer: never throws on bad input; reports per-record problems.
+  function importJSON(text, opts){
+    opts=opts||{}; const mode = opts.mode==='replace' ? 'replace' : 'merge';
+    const result={added:0,updated:0,skipped:0,errors:[]};
+    const writtenPhotoIds=[];   // photo blobs written during THIS import — kept so we can undo them if the final save fails
+    let parsed=null;
+    try{ let t=String(text==null?'':text); if(t.charCodeAt(0)===0xFEFF) t=t.slice(1); parsed=JSON.parse(t); }
+    catch(e){ result.errors.push('That file is not valid JSON ('+e.message+').'); return Promise.resolve(result); }
+    if(!parsed || typeof parsed!=='object'){ result.errors.push('That file did not contain a stash.'); return Promise.resolve(result); }
+    if(parsed.format && parsed.format!==EXPORT_FORMAT) result.errors.push('Note: file says format "'+parsed.format+'" (expected "'+EXPORT_FORMAT+'"). Imported anyway.');
+
+    const incoming = migrate({ schemaVersion:Number(parsed.schemaVersion)||0, items:Array.isArray(parsed.items)?parsed.items:[], projects:Array.isArray(parsed.projects)?parsed.projects:[], settings:{} });
+    const store = cloneStore(currentStore());
+
+    const clearPhotos = (mode==='replace')
+      ? Promise.all(store.items.map(function(it){ return (it.photoDataUrl && it.photoDataUrl.indexOf('idb:')===0) ? deletePhotoBlob(it.photoDataUrl.slice(4)) : null; }))
+      : Promise.resolve();
+
+    return clearPhotos.then(function(){
+      if(mode==='replace'){ store.items=[]; store.projects=[]; }
+      const projById={}; store.projects.forEach(function(p){projById[p.id]=p;});
+      incoming.projects.forEach(function(rawP){
+        try{ const p=coerceProject(rawP); if(projById[p.id]) Object.assign(projById[p.id],p,{assignedStashIds:projById[p.id].assignedStashIds}); else { store.projects.push(p); projById[p.id]=p; } }
+        catch(e){ result.errors.push('Skipped a project ('+e.message+').'); }
+      });
+
+      const itemById={}; store.items.forEach(function(i){itemById[i.id]=i;});
+      // Re-split any inlined photos back into IndexedDB, one item at a time.
+      let chain=Promise.resolve();
+      incoming.items.forEach(function(rawI){
+        chain=chain.then(function(){
+          let it;
+          try{ it=coerceStashItem(rawI,{generateId:true}); }
+          catch(e){ result.skipped++; result.errors.push('Skipped an item ('+e.message+').'); return; }
+          const split = (it.photoDataUrl && it.photoDataUrl.indexOf('data:')===0)
+            ? (function(){
+                const blob=dataUrlToBlob(it.photoDataUrl);
+                if(!blob){ it.photoDataUrl=''; result.errors.push('One item\'s photo was unreadable, so the photo was dropped (the yarn itself was kept).'); return Promise.resolve(); }
+                const pid=uuid();
+                return putPhotoBlob(pid,blob).then(function(ok){
+                  if(ok){ it.photoDataUrl='idb:'+pid; writtenPhotoIds.push(pid); }
+                  else { it.photoDataUrl=''; result.errors.push('One item\'s photo could not be stored (storage may be full), so the photo was dropped (the yarn itself was kept).'); }
+                });
+              })()
+            : Promise.resolve();
+          return split.then(function(){
+            if(itemById[it.id]){ Object.assign(itemById[it.id],it); result.updated++; }
+            else { store.items.push(it); itemById[it.id]=it; result.added++; }
+          });
+        });
+      });
+      return chain.then(function(){
+        try{ commit(store); }
+        catch(e){
+          // The final save hit the storage limit. Undo the photo blobs we wrote
+          // this import so they don't linger as orphans, and report it instead of crashing.
+          return Promise.all(writtenPhotoIds.map(function(pid){ return deletePhotoBlob(pid); }))
+            .then(function(){ result.added=0; result.updated=0; result.errors.push('Storage is full — nothing was imported. Remove some items or photos and try again.'); return result; });
+        }
+        return result;
+      });
+    });
+  }
+
+  function exportCSV(){
+    const cols=['id','brand','line','colorName','colorHex','dyeLot','weightCategory','weightLabel','fiber','yardsPerSkein','gramsPerSkein','skeinsOnHand','totalYards','gaugeStitches','gaugeRows','hookSizeMm','assignedProjectId','notes'];
+    function esc(v){ if(v==null) v=''; v=String(v); return /[",\n\r]/.test(v) ? '"'+v.replace(/"/g,'""')+'"' : v; }
+    const lines=[cols.join(',')];
+    currentStore().items.forEach(function(it){
+      const total=(it.yardsPerSkein!=null)?it.yardsPerSkein*(it.skeinsOnHand||0):'';
+      const row=[it.id,it.brand,it.line,it.colorName,it.colorHex||'',it.dyeLot,it.weightCategory,(it.weightCategory!=null?WEIGHT_LABELS[it.weightCategory]:''),it.fiber,it.yardsPerSkein,it.gramsPerSkein,it.skeinsOnHand,total,it.gaugeStitches,it.gaugeRows,it.hookSizeMm,it.assignedProjectId||'',it.notes];
+      lines.push(row.map(esc).join(','));
+    });
+    return lines.join('\r\n');
+  }
+
+  // expose the contract
+  window.CrochetStash = {
+    SCHEMA_VERSION:SCHEMA_VERSION, STASH_STORE_KEY:STASH_STORE_KEY, EXPORT_FORMAT:EXPORT_FORMAT,
+    STORAGE_IDS:STORAGE_IDS, WEIGHT_LABELS:WEIGHT_LABELS,
+    loadStore:loadStore, getStashItems:getStashItems, getStashItem:getStashItem,
+    getProjects:getProjects, getProject:getProject, getStats:getStats, getPhotoUrl:getPhotoUrl,
+    subscribe:subscribe, upsertStashItem:upsertStashItem, deleteStashItem:deleteStashItem,
+    saveProject:saveProject, deleteProject:deleteProject, assignStash:assignStash,
+    exportJSON:exportJSON, importJSON:importJSON, exportCSV:exportCSV,
+    coerceStashItem:coerceStashItem, coerceProject:coerceProject, migrate:migrate,
+    _isNewerVersionSeen:function(){return _newerVersionSeen;}
+  };
+})();
+
+
+/* ==========================================================================
+   PART 2 — THE USER INTERFACE
+   ========================================================================== */
+(function(){
+  const S = window.CrochetStash;
+  const WEIGHT_LABELS = S.WEIGHT_LABELS;
+  const $ = function(id){ return document.getElementById(id); };
+
+  // little escape so user text can never inject HTML
+  function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+  function fmt(n){ return (Math.round(n*10)/10).toLocaleString(); }
+  function fmtDate(iso){ if(!iso) return ''; try{ return new Date(iso).toLocaleDateString(); }catch(_){ return iso; } }
+  function safeHex(h){ return (typeof h==='string' && /^#[0-9a-f]{6}$/.test(h)) ? h : null; }
+
+  // UI state
+  const UI = { view:'stash', search:'', fWeight:null, fFiber:null, fBrand:'', sort:'recent', editingItemId:null };
+  let pendingPhotoFile=null, removePhotoFlag=false, formPhotoPreviewUrl=null;
+  let _gridUrls=[], _modalUrls=[];
+  function revokeBucket(arr){ arr.forEach(function(u){ try{URL.revokeObjectURL(u);}catch(_){} }); arr.length=0; }
+
+  // resolve <img data-photo-ref> placeholders to real images after render
+  function hydratePhotos(root, bucket){
+    root.querySelectorAll('[data-photo-ref]').forEach(function(el){
+      const ref=el.getAttribute('data-photo-ref');
+      S.getPhotoUrl(ref).then(function(url){
+        if(!url) return;
+        if(url.indexOf('blob:')===0) bucket.push(url);
+        el.src=url; el.classList.add('loaded');
+      });
+    });
+  }
+
+  function fiberBucket(fiber){
+    const f=(fiber||'').toLowerCase(); if(!f.trim()) return 'other';
+    const hits=[];
+    if(f.indexOf('acryl')>=0) hits.push('acrylic');
+    if(/wool|merino|alpaca|mohair|cashmere/.test(f)) hits.push('wool/animal');
+    if(f.indexOf('cotton')>=0) hits.push('cotton');
+    if(/nylon|polyester|\bpoly\b|bamboo|rayon|silk|linen|acrylic-free|acetate/.test(f)) hits.push('synthetic/other');
+    if(hits.length===0) return 'other';
+    if(hits.length>1) return 'blend';
+    return hits[0];
+  }
+
+  function toast(msg){ const t=$('toast'); t.textContent=msg; t.classList.remove('hidden'); clearTimeout(toast._t); toast._t=setTimeout(function(){t.classList.add('hidden');},2600); }
+
+  /* ---------- view switching ---------- */
+  function switchView(v){
+    UI.view=v;
+    ['stash','projects','data'].forEach(function(k){ $('view-'+k).classList.toggle('hidden', k!==v); });
+    document.querySelectorAll('nav.seg button').forEach(function(b){ b.classList.toggle('active', b.getAttribute('data-id')===v); });
+    renderCurrentView();
+  }
+  function renderCurrentView(){
+    if(UI.view==='stash') renderStash();
+    else if(UI.view==='projects') renderProjects();
+    else renderData();
+    renderStorageMeter();
+  }
+
+  /* ---------- STASH view ---------- */
+  function filteredItems(){
+    let items=S.getStashItems();
+    const q=UI.search.trim().toLowerCase();
+    if(q){ items=items.filter(function(it){ return [it.brand,it.line,it.colorName,it.dyeLot,it.fiber,it.notes].join(' ').toLowerCase().indexOf(q)>=0; }); }
+    if(UI.fWeight!=null){ items=items.filter(function(it){ return UI.fWeight==='unknown' ? it.weightCategory==null : it.weightCategory===UI.fWeight; }); }
+    if(UI.fFiber){ items=items.filter(function(it){ return fiberBucket(it.fiber)===UI.fFiber; }); }
+    if(UI.fBrand){ items=items.filter(function(it){ return it.brand===UI.fBrand; }); }
+    items=sortItems(items, UI.sort);
+    return items;
+  }
+  function sortItems(items, mode){
+    const a=items.slice();
+    if(mode==='color') a.sort(function(x,y){ return (x.colorName||'').localeCompare(y.colorName||''); });
+    else if(mode==='weight') a.sort(function(x,y){ return (x.weightCategory==null?99:x.weightCategory)-(y.weightCategory==null?99:y.weightCategory); });
+    else if(mode==='yards') a.sort(function(x,y){ return ((y.yardsPerSkein||0)*(y.skeinsOnHand||0))-((x.yardsPerSkein||0)*(x.skeinsOnHand||0)); });
+    else if(mode==='brand') a.sort(function(x,y){ return (x.brand||'').localeCompare(y.brand||''); });
+    // 'recent' = insertion order (newest last in storage) -> show newest first
+    else a.reverse();
+    return a;
+  }
+
+  function renderStash(){
+    revokeBucket(_gridUrls);
+    const all=S.getStashItems();
+    const brands=Array.from(new Set(all.map(function(i){return i.brand;}).filter(Boolean))).sort();
+    const fibers=Array.from(new Set(all.map(function(i){return fiberBucket(i.fiber);}))).sort();
+
+    const weightChips=['unknown',0,1,2,3,4,5,6,7].map(function(w){
+      const on = UI.fWeight===w;
+      const label = w==='unknown' ? 'Unknown' : (w+' '+WEIGHT_LABELS[w]);
+      return '<button class="chip'+(on?' on':'')+'" data-action="fweight" data-id="'+w+'">'+esc(label)+'</button>';
+    }).join('');
+
+    const fiberOpts=['<option value="">All fibers</option>'].concat(fibers.map(function(f){ return '<option value="'+esc(f)+'"'+(UI.fFiber===f?' selected':'')+'>'+esc(f)+'</option>'; })).join('');
+    const brandOpts=['<option value="">All brands</option>'].concat(brands.map(function(b){ return '<option value="'+esc(b)+'"'+(UI.fBrand===b?' selected':'')+'>'+esc(b)+'</option>'; })).join('');
+    const sortOpts=[['recent','Recently added'],['color','Color name'],['weight','Weight'],['yards','Yards on hand'],['brand','Brand']]
+      .map(function(o){ return '<option value="'+o[0]+'"'+(UI.sort===o[0]?' selected':'')+'>'+o[1]+'</option>'; }).join('');
+
+    const controls =
+      '<div class="controls">'+
+        '<div class="topline">'+
+          '<input id="search" class="search" type="search" placeholder="Search brand, color, dye lot, fiber…" value="'+esc(UI.search)+'">'+
+          '<button class="btn primary" data-action="add">+ Add Yarn</button>'+
+        '</div>'+
+        '<div class="chips">'+weightChips+'</div>'+
+        '<div class="selrow">'+
+          '<div><label>Fiber</label><select id="ffiber">'+fiberOpts+'</select></div>'+
+          '<div><label>Brand</label><select id="fbrand">'+brandOpts+'</select></div>'+
+          '<div><label>Sort by</label><select id="fsort">'+sortOpts+'</select></div>'+
+        '</div>'+
+      '</div>';
+
+    $('view-stash').innerHTML = controls +
+      '<div class="headline" id="stash-headline"></div>'+
+      '<div id="stash-results"></div>'+
+      assumptionsNote();
+
+    // wire controls (delegation handles clicks; these need live input/change)
+    $('search').addEventListener('input', function(e){ UI.search=e.target.value; renderStashResults(); });
+    $('ffiber').addEventListener('change', function(e){ UI.fFiber=e.target.value; renderStashResults(); });
+    $('fbrand').addEventListener('change', function(e){ UI.fBrand=e.target.value; renderStashResults(); });
+    $('fsort').addEventListener('change', function(e){ UI.sort=e.target.value; renderStashResults(); });
+
+    renderStashResults();
+  }
+
+  function renderStashResults(){
+    revokeBucket(_gridUrls);
+    const items=filteredItems();
+    const stats=S.getStats(items);
+    $('stash-headline').innerHTML =
+      '<div><div class="big">'+fmt(stats.totalYards)+' yds</div><div class="lbl">Yarn on hand (shown)</div></div>'+
+      '<div><div class="big">'+stats.skeinCount+'</div><div class="lbl">Skeins</div></div>'+
+      '<div><div class="big">'+stats.itemCount+'</div><div class="lbl">Yarns</div></div>'+
+      (stats.yardsReserved>0?'<div><div class="big">'+fmt(stats.yardsFree)+' yds</div><div class="lbl">Free (not in a project)</div></div>':'');
+
+    const res=$('stash-results');
+    if(items.length===0){
+      const empty = S.getStashItems().length===0;
+      res.innerHTML='<div class="empty">'+
+        (empty
+          ? '<h3>Your stash is empty</h3><p>Add your first yarn, or load some sample data from the <b>Data</b> tab to see how it works.</p><button class="btn primary" data-action="add">+ Add your first yarn</button>'
+          : '<h3>No matches</h3><p>Nothing matches your search/filters. Try clearing them.</p><button class="btn" data-action="clearfilters">Clear filters</button>')+
+        '</div>';
+      return;
+    }
+    res.innerHTML='<div class="grid">'+items.map(cardHTML).join('')+'</div>';
+    hydratePhotos(res,_gridUrls);
+  }
+
+  function cardHTML(it){
+    const hex=safeHex(it.colorHex);
+    const bg = hex ? ('background-color:'+hex+';') : 'background:linear-gradient(135deg,#efe6d6,#e3d6c0);';
+    const photo = (it.photoDataUrl) ? '<img data-photo-ref="'+esc(it.photoDataUrl)+'" alt="">' : '';
+    const wlabel = it.weightCategory!=null ? (it.weightCategory+' · '+WEIGHT_LABELS[it.weightCategory]) : 'Weight ?';
+    const yards = it.yardsPerSkein!=null ? ((it.yardsPerSkein*(it.skeinsOnHand||0))+' yds') : '— yds';
+    const reserved = it.assignedProjectId ? '<span class="pill reserved">reserved</span>' : '<span class="pill free">free</span>';
+    return '<div class="card" data-action="detail" data-id="'+esc(it.id)+'">'+
+      '<div class="swatch" style="'+bg+'">'+photo+'<span class="wbadge">'+esc(wlabel)+'</span></div>'+
+      '<div class="body">'+
+        '<div class="brandline">'+esc([it.brand,it.line].filter(Boolean).join(' · ')||'—')+'</div>'+
+        '<div class="color">'+esc(it.colorName||'(no color name)')+'</div>'+
+        '<div class="meta">'+esc(it.fiber||'fiber unknown')+'</div>'+
+        '<div class="foot"><span class="qty">'+(it.skeinsOnHand||0)+' skein'+((it.skeinsOnHand===1)?'':'s')+' · '+esc(yards)+'</span>'+reserved+'</div>'+
+      '</div>'+
+    '</div>';
+  }
+
+  function assumptionsNote(){
+    return '<div class="assumptions">'+
+      '<b>For the crocheter:</b> a few things I (the builder) couldn\'t verify — please sanity-check: '+
+      'weights use the Craft Yarn Council 0–7 scale (0 Lace … 4 Medium/Worsted … 7 Jumbo); '+
+      'gauge is entered <b>per 4 inches</b> (stitches and rows); hook size is in <b>mm</b>; '+
+      'the duplicate warning matches brand + line + color name and flags a different dye lot. '+
+      'Tell me if any of these don\'t match how you actually track yarn.'+
+    '</div>';
+  }
+
+  /* ---------- Add / Edit form ---------- */
+  function openItemForm(itemId){
+    UI.editingItemId = itemId||null;
+    pendingPhotoFile=null; removePhotoFlag=false;
+    if(formPhotoPreviewUrl){ try{URL.revokeObjectURL(formPhotoPreviewUrl);}catch(_){} formPhotoPreviewUrl=null; }
+    const it = itemId ? S.getStashItem(itemId) : null;
+    const v = it || {brand:'',line:'',colorName:'',colorHex:null,dyeLot:'',weightCategory:null,fiber:'',yardsPerSkein:null,gramsPerSkein:null,skeinsOnHand:1,gaugeStitches:null,gaugeRows:null,hookSizeMm:null,notes:''};
+    const weightSel = ['<option value="">Unknown</option>'].concat([0,1,2,3,4,5,6,7].map(function(w){ return '<option value="'+w+'"'+(v.weightCategory===w?' selected':'')+'>'+w+' · '+WEIGHT_LABELS[w]+'</option>'; })).join('');
+    const num=function(x){ return x==null?'':x; };
+
+    openModal((it?'Edit yarn':'Add yarn'),
+      '<form id="itemform" onsubmit="return false">'+
+        '<div id="dupe-area"></div>'+
+        '<div class="field"><label>Brand</label><input type="text" id="f-brand" value="'+esc(v.brand)+'" placeholder="e.g. Lion Brand"></div>'+
+        '<div class="grid2">'+
+          '<div class="field"><label>Line / product</label><input type="text" id="f-line" value="'+esc(v.line)+'" placeholder="e.g. Wool-Ease"></div>'+
+          '<div class="field"><label>Color name</label><input type="text" id="f-colorName" value="'+esc(v.colorName)+'" placeholder="e.g. Fisherman"></div>'+
+        '</div>'+
+        '<div class="grid2">'+
+          '<div class="field"><label>Color (for matching)</label><div class="hexrow"><span class="sw" id="f-sw" style="'+(safeHex(v.colorHex)?'background:'+v.colorHex:'')+'"></span><input type="text" id="f-colorHex" value="'+esc(v.colorHex||'')+'" placeholder="#e8e2d0 (optional)"></div></div>'+
+          '<div class="field"><label>Dye lot</label><input type="text" id="f-dyeLot" value="'+esc(v.dyeLot)+'" placeholder="lots vary — worth noting"></div>'+
+        '</div>'+
+        '<div class="grid2">'+
+          '<div class="field"><label>Weight category</label><select id="f-weight">'+weightSel+'</select></div>'+
+          '<div class="field"><label>Fiber</label><input type="text" id="f-fiber" value="'+esc(v.fiber)+'" placeholder="e.g. 80% acrylic / 20% wool"></div>'+
+        '</div>'+
+        '<div class="grid3">'+
+          '<div class="field"><label>Yards / skein</label><input type="number" id="f-yards" min="0" step="any" value="'+num(v.yardsPerSkein)+'"></div>'+
+          '<div class="field"><label>Grams / skein</label><input type="number" id="f-grams" min="0" step="any" value="'+num(v.gramsPerSkein)+'"></div>'+
+          '<div class="field"><label>Skeins on hand</label><div class="stepper"><button type="button" data-action="step" data-id="-1">−</button><input type="number" id="f-skeins" min="0" step="1" value="'+num(v.skeinsOnHand)+'"><button type="button" data-action="step" data-id="1">+</button></div></div>'+
+        '</div>'+
+        '<div class="grid3">'+
+          '<div class="field"><label>Gauge sts / 4in</label><input type="number" id="f-gst" min="0" step="any" value="'+num(v.gaugeStitches)+'"></div>'+
+          '<div class="field"><label>Gauge rows / 4in</label><input type="number" id="f-grows" min="0" step="any" value="'+num(v.gaugeRows)+'"></div>'+
+          '<div class="field"><label>Hook (mm)</label><input type="number" id="f-hook" min="0" step="any" value="'+num(v.hookSizeMm)+'"></div>'+
+        '</div>'+
+        '<div class="field"><label>Photo (optional)</label>'+
+          '<div class="photo-preview"><img id="f-photo-img" data-photo-ref="'+esc(v.photoDataUrl||'')+'" alt="" style="'+((it&&it.photoDataUrl)?'':'display:none')+'">'+
+          '<div><input type="file" id="f-photo" accept="image/*" capture="environment"><div class="hint">Auto-shrunk to a small JPEG before saving.</div>'+
+          ((it&&it.photoDataUrl)?'<button type="button" class="btn small ghost" data-action="rmphoto" style="margin-top:6px">Remove photo</button>':'')+'</div></div>'+
+        '</div>'+
+        '<div class="field"><label>Notes</label><textarea id="f-notes" placeholder="anything you want to remember">'+esc(v.notes)+'</textarea></div>'+
+        '<div class="row"><button class="btn primary" data-action="saveitem">Save</button>'+
+          (it?'':'<button class="btn" data-action="saveadd">Save &amp; add another</button>')+
+          '<span class="spacer"></span><button class="btn ghost" data-action="closemodal">Cancel</button></div>'+
+      '</form>');
+
+    if(it && it.photoDataUrl) hydratePhotos($('modal-inner'),_modalUrls);
+    wireItemForm();
+    refreshDupe();
+  }
+
+  function wireItemForm(){
+    $('f-colorHex').addEventListener('input', function(e){ const h=normalizeHexLite(e.target.value); $('f-sw').style.background=h||''; });
+    ['f-brand','f-line','f-colorName','f-dyeLot'].forEach(function(id){ $(id).addEventListener('input', refreshDupe); });
+    $('f-photo').addEventListener('change', function(e){
+      const file=e.target.files && e.target.files[0];
+      if(!file) return;
+      pendingPhotoFile=file; removePhotoFlag=false;
+      if(formPhotoPreviewUrl){ try{URL.revokeObjectURL(formPhotoPreviewUrl);}catch(_){} }
+      formPhotoPreviewUrl=URL.createObjectURL(file);
+      const img=$('f-photo-img'); img.src=formPhotoPreviewUrl; img.style.display='';
+    });
+  }
+  function normalizeHexLite(x){ let s=(x||'').trim(); if(!s) return null; if(s[0]!=='#') s='#'+s; if(/^#[0-9a-fA-F]{3}$/.test(s)) s='#'+s[1]+s[1]+s[2]+s[2]+s[3]+s[3]; return /^#[0-9a-fA-F]{6}$/.test(s)?s.toLowerCase():null; }
+
+  function refreshDupe(){
+    if(!$('f-brand')) return;
+    const brand=$('f-brand').value, line=$('f-line').value, color=$('f-colorName').value, lot=$('f-dyeLot').value;
+    const b=brand.trim().toLowerCase(), l=line.trim().toLowerCase(), c=color.trim().toLowerCase();
+    const area=$('dupe-area'); area.innerHTML='';
+    if(!b || !c) return;
+    const dupes=S.getStashItems().filter(function(it){ return it.id!==UI.editingItemId && it.brand.toLowerCase()===b && it.line.toLowerCase()===l && it.colorName.toLowerCase()===c; });
+    if(dupes.length===0) return;
+    const totalSkeins=dupes.reduce(function(a,d){return a+(d.skeinsOnHand||0);},0);
+    const diffLot = lot.trim() && dupes.some(function(d){ return (d.dyeLot||'').trim() && d.dyeLot.trim().toLowerCase()!==lot.trim().toLowerCase(); });
+    area.innerHTML = '<div class="dupe'+(diffLot?' lot':'')+'">'+
+      '🧶 <b>You may already own this</b> — '+totalSkeins+' skein'+(totalSkeins===1?'':'s')+' of '+esc([brand,line,color].filter(Boolean).join(' '))+' already in your stash.'+
+      (diffLot?'<br>⚠ A matching color is on a <b>different dye lot</b> — colors can shift between lots within one project.':'')+
+    '</div>';
+  }
+
+  function readItemForm(){
+    return {
+      id: UI.editingItemId||undefined,
+      brand:$('f-brand').value, line:$('f-line').value, colorName:$('f-colorName').value,
+      colorHex:$('f-colorHex').value, dyeLot:$('f-dyeLot').value, weightCategory:$('f-weight').value,
+      fiber:$('f-fiber').value, yardsPerSkein:$('f-yards').value, gramsPerSkein:$('f-grams').value,
+      skeinsOnHand:$('f-skeins').value, gaugeStitches:$('f-gst').value, gaugeRows:$('f-grows').value,
+      hookSizeMm:$('f-hook').value, notes:$('f-notes').value
+    };
+  }
+  function saveItem(addAnother){
+    const partial=readItemForm();
+    let photoArg; if(removePhotoFlag) photoArg=null; else if(pendingPhotoFile) photoArg=pendingPhotoFile;
+    S.upsertStashItem(partial, photoArg).then(function(item){
+      const photoFailed = (photoArg instanceof Blob) && item.photoDataUrl==='';
+      toast(photoFailed ? 'Saved — but the photo couldn\'t be stored (your yarn data is safe).' : 'Saved.');
+      if(addAnother){
+        // keep brand/line/weight/fiber for a multi-color haul; clear the rest
+        UI.editingItemId=null; pendingPhotoFile=null; removePhotoFlag=false;
+        ['f-colorName','f-colorHex','f-dyeLot','f-yards','f-grams','f-gst','f-grows','f-hook','f-notes'].forEach(function(id){ if($(id)) $(id).value=''; });
+        $('f-skeins').value='1'; $('f-sw').style.background=''; const img=$('f-photo-img'); img.src=''; img.style.display='none'; $('f-photo').value='';
+        $('dupe-area').innerHTML=''; $('f-colorName').focus();
+        renderCurrentView();
+      } else { closeModal(); renderCurrentView(); }
+    }).catch(function(){ toast('Could not save — storage may be full. Export a backup from the Data tab.'); });
+  }
+
+  /* ---------- detail ---------- */
+  function openDetail(id){
+    const it=S.getStashItem(id); if(!it) return;
+    const projects=S.getProjects();
+    const proj = it.assignedProjectId ? projects.find(function(p){return p.id===it.assignedProjectId;}) : null;
+    const hex=safeHex(it.colorHex);
+    const projOpts=['<option value="">— not assigned (free) —</option>'].concat(projects.map(function(p){ return '<option value="'+esc(p.id)+'"'+(it.assignedProjectId===p.id?' selected':'')+'>'+esc(p.name)+' ('+p.status+')</option>'; })).join('');
+    const rows=[
+      ['Brand', it.brand],['Line', it.line],['Color', it.colorName],
+      ['Color hex', hex?('<span style="display:inline-block;width:14px;height:14px;border-radius:3px;border:1px solid #ccc;background:'+hex+';vertical-align:middle"></span> '+esc(hex)):'—'],
+      ['Dye lot', it.dyeLot],
+      ['Weight', it.weightCategory!=null?(it.weightCategory+' · '+WEIGHT_LABELS[it.weightCategory]):'—'],
+      ['Fiber', it.fiber],
+      ['Per skein', (it.yardsPerSkein!=null?it.yardsPerSkein+' yds':'— yds')+' / '+(it.gramsPerSkein!=null?it.gramsPerSkein+' g':'— g')],
+      ['On hand', (it.skeinsOnHand||0)+' skeins'+(it.yardsPerSkein!=null?(' = '+fmt(it.yardsPerSkein*(it.skeinsOnHand||0))+' yds'):'')],
+      ['Gauge', (it.gaugeStitches!=null?it.gaugeStitches+' sts':'—')+' / '+(it.gaugeRows!=null?it.gaugeRows+' rows':'—')+' per 4in'],
+      ['Hook', it.hookSizeMm!=null?(it.hookSizeMm+' mm'):'—'],
+      ['Notes', it.notes]
+    ].filter(function(r){ return r[1]!=null && r[1]!==''; });
+
+    openModal(it.colorName||'Yarn details',
+      (it.photoDataUrl?'<img class="detail-photo" data-photo-ref="'+esc(it.photoDataUrl)+'" alt="">':(hex?'<div class="detail-photo" style="background:'+hex+'"></div>':''))+
+      '<div class="kv">'+rows.map(function(r){ return '<div class="k">'+esc(r[0])+'</div><div>'+(r[0]==='Color hex'?r[1]:esc(r[1]))+'</div>'; }).join('')+'</div>'+
+      '<div class="field" style="margin-top:14px"><label>Assign to project</label><select id="d-assign">'+projOpts+'</select>'+
+        (proj?'<div class="hint">Currently reserved for <b>'+esc(proj.name)+'</b>.</div>':'<div class="hint">Free yarn — not reserved for any project.</div>')+'</div>'+
+      '<div class="row" style="margin-top:14px"><button class="btn primary" data-action="edititem" data-id="'+esc(it.id)+'">Edit</button>'+
+        '<button class="btn danger" data-action="delitem" data-id="'+esc(it.id)+'">Delete</button>'+
+        '<span class="spacer"></span><button class="btn ghost" data-action="closemodal">Close</button></div>');
+
+    if(it.photoDataUrl) hydratePhotos($('modal-inner'),_modalUrls);
+    $('d-assign').addEventListener('change', function(e){ S.assignStash(it.id, e.target.value||null); toast(e.target.value?'Reserved.':'Freed.'); renderCurrentView(); });
+  }
+
+  /* ---------- PROJECTS view ---------- */
+  function renderProjects(){
+    const projects=S.getProjects();
+    const items=S.getStashItems();
+    let html='<div class="row" style="margin-bottom:12px"><button class="btn primary" data-action="addproj">+ New Project</button><span class="spacer"></span><span class="muted">'+projects.length+' project'+(projects.length===1?'':'s')+'</span></div>';
+
+    if(projects.length===0){
+      html+='<div class="empty"><h3>No projects yet</h3><p>Create a project, then reserve yarn from your stash for it.</p><button class="btn primary" data-action="addproj">+ New Project</button></div>';
+      $('view-projects').innerHTML=html; return;
+    }
+    const labels={queued:'Queued',wip:'In progress',done:'Finished'};
+    ['queued','wip','done'].forEach(function(st){
+      const ps=projects.filter(function(p){return p.status===st;});
+      if(ps.length===0) return;
+      html+='<div class="statushdr">'+labels[st]+' ('+ps.length+')</div>';
+      ps.forEach(function(p){
+        const assigned=items.filter(function(it){return it.assignedProjectId===p.id;});
+        const stats=S.getStats(assigned);
+        html+='<div class="proj">'+
+          '<div class="row"><div style="flex:1"><h3>'+esc(p.name)+'</h3>'+(p.patternRef?'<div class="muted" style="font-size:13px">'+esc(p.patternRef)+'</div>':'')+'</div>'+
+            '<span class="pill reserved">'+fmt(stats.totalYards)+' yds reserved</span></div>'+
+          '<div class="muted" style="font-size:13px;margin-top:4px">'+assigned.length+' yarn'+(assigned.length===1?'':'s')+
+            (p.startedAt?(' · started '+fmtDate(p.startedAt)):'')+(p.finishedAt?(' · finished '+fmtDate(p.finishedAt)):'')+'</div>'+
+          (p.notes?'<div style="font-size:13.5px;margin-top:6px">'+esc(p.notes)+'</div>':'')+
+          '<div class="row" style="margin-top:10px">'+
+            '<select data-action="projstatus" data-id="'+esc(p.id)+'" style="max-width:170px">'+
+              ['queued','wip','done'].map(function(s){return '<option value="'+s+'"'+(p.status===s?' selected':'')+'>'+labels[s]+'</option>';}).join('')+'</select>'+
+            '<button class="btn small" data-action="viewproj" data-id="'+esc(p.id)+'">Manage yarn</button>'+
+            '<button class="btn small ghost" data-action="editproj" data-id="'+esc(p.id)+'">Edit</button>'+
+            '<button class="btn small danger" data-action="delproj" data-id="'+esc(p.id)+'">Delete</button>'+
+          '</div>'+
+        '</div>';
+      });
+    });
+    $('view-projects').innerHTML=html;
+  }
+
+  function openProjectForm(id){
+    const p = id ? S.getProject(id) : {name:'',patternRef:'',status:'queued',notes:''};
+    openModal(id?'Edit project':'New project',
+      '<form onsubmit="return false">'+
+      '<div class="field"><label>Name</label><input type="text" id="p-name" value="'+esc(p.name)+'" placeholder="e.g. Striped baby blanket"></div>'+
+      '<div class="field"><label>Pattern reference (optional)</label><input type="text" id="p-ref" value="'+esc(p.patternRef)+'" placeholder="link, book, page…"></div>'+
+      '<div class="field"><label>Status</label><select id="p-status">'+
+        [['queued','Queued'],['wip','In progress'],['done','Finished']].map(function(o){return '<option value="'+o[0]+'"'+(p.status===o[0]?' selected':'')+'>'+o[1]+'</option>';}).join('')+'</select></div>'+
+      '<div class="field"><label>Notes</label><textarea id="p-notes">'+esc(p.notes)+'</textarea></div>'+
+      '<div class="row"><button class="btn primary" data-action="saveproj" data-id="'+esc(id||'')+'">Save</button><span class="spacer"></span><button class="btn ghost" data-action="closemodal">Cancel</button></div>'+
+      '</form>');
+  }
+
+  function openProjectDetail(id){
+    const p=S.getProject(id); if(!p) return;
+    const items=S.getStashItems();
+    const assigned=items.filter(function(it){return it.assignedProjectId===id;});
+    const free=items.filter(function(it){return !it.assignedProjectId;});
+    function rowHTML(it, inProject){
+      const hex=safeHex(it.colorHex);
+      return '<div class="assignrow"><span class="swatch-mini" style="background:'+(hex||'#ddd')+'"></span>'+
+        '<span style="flex:1">'+esc([it.brand,it.colorName].filter(Boolean).join(' · ')||'(yarn)')+' <span class="muted">('+(it.skeinsOnHand||0)+' sk)</span></span>'+
+        (inProject
+          ? '<button class="btn small ghost" data-action="unassign" data-id="'+esc(it.id)+'">Remove</button>'
+          : '<button class="btn small" data-action="assignto" data-id="'+esc(it.id)+'" data-proj="'+esc(id)+'">Add</button>')+
+      '</div>';
+    }
+    const stats=S.getStats(assigned);
+    openModal('Manage: '+(p.name||'Project'),
+      '<div class="muted" style="margin-bottom:10px">'+fmt(stats.totalYards)+' yds reserved · '+assigned.length+' yarn'+(assigned.length===1?'':'s')+'</div>'+
+      '<div class="statushdr" style="margin-top:0">In this project</div>'+
+      (assigned.length?('<div class="assignlist">'+assigned.map(function(it){return rowHTML(it,true);}).join('')+'</div>'):'<div class="muted" style="font-size:13.5px">No yarn reserved yet.</div>')+
+      '<div class="statushdr">Add from free yarn</div>'+
+      (free.length?('<div class="assignlist">'+free.map(function(it){return rowHTML(it,false);}).join('')+'</div>'):'<div class="muted" style="font-size:13.5px">No free yarn available.</div>')+
+      '<div class="row" style="margin-top:14px"><span class="spacer"></span><button class="btn ghost" data-action="closemodal">Done</button></div>');
+  }
+
+  /* ---------- DATA view ---------- */
+  function renderData(){
+    $('view-data').innerHTML =
+      '<div class="datacard"><h3>Backup &amp; restore (JSON)</h3>'+
+        '<p>Your data lives only in this browser. Download a backup file now and then so you never lose it. The backup includes photos and works as a transfer between computers.</p>'+
+        '<div class="row"><button class="btn primary" data-action="exportjson">⬇ Export / Backup (.json)</button>'+
+        '<button class="btn" data-action="importjson">⬆ Import (.json)</button></div>'+
+        '<input type="file" id="import-file" accept="application/json,.json" style="display:none">'+
+        '<div id="import-report"></div>'+
+      '</div>'+
+      '<div class="datacard"><h3>Spreadsheet export (CSV)</h3>'+
+        '<p>A flat table of your stash for Excel/Google Sheets. (Photos are not included, and CSV <i>import</i> is intentionally not supported yet — use JSON for safe round-trips.)</p>'+
+        '<button class="btn" data-action="exportcsv">⬇ Export CSV</button>'+
+      '</div>'+
+      '<div class="datacard"><h3>Storage</h3>'+
+        '<div id="storage-detail"></div>'+
+      '</div>'+
+      '<div class="datacard"><h3>Try it out</h3>'+
+        '<p>No yarn handy to test with? Load a few sample skeins and projects. The self-test checks that saving, backup and restore all work correctly.</p>'+
+        '<div class="row"><button class="btn" data-action="demo">Load demo data</button>'+
+        '<button class="btn" data-action="cleardemo">Clear ALL data</button>'+
+        '<button class="btn" data-action="selftest">Run self-test</button></div>'+
+        '<div id="selftest-out"></div>'+
+      '</div>';
+    renderStorageDetail();
+  }
+
+  function renderStorageDetail(){
+    let raw=''; try{ raw=localStorage.getItem(S.STASH_STORE_KEY)||''; }catch(_){}
+    const bytes=raw.length; const pct=Math.min(100, bytes/(5*1024*1024)*100);
+    const photoCount=S.getStashItems().filter(function(i){return i.photoDataUrl;}).length;
+    const idb = !!self.indexedDB;
+    const el=$('storage-detail'); if(!el) return;
+    el.innerHTML='<div class="meter"><i style="width:'+pct.toFixed(1)+'%"></i></div>'+
+      '<div class="muted" style="font-size:13px">Text data: ~'+(bytes/1024).toFixed(1)+' KB of ~5 MB ('+pct.toFixed(1)+'%). '+
+      photoCount+' photo'+(photoCount===1?'':'s')+' stored '+(idb?'in IndexedDB':'(IndexedDB unavailable — photos disabled)')+'.</div>';
+  }
+  function renderStorageMeter(){
+    let raw=''; try{ raw=localStorage.getItem(S.STASH_STORE_KEY)||''; }catch(_){}
+    const st=S.getStats();
+    $('storage-meter').textContent = st.itemCount+' yarns · '+st.skeinCount+' skeins · '+fmt(st.totalYards)+' yds on hand · '+(raw.length/1024).toFixed(0)+' KB used';
+  }
+
+  /* ---------- export/import actions ---------- */
+  function download(filename, text, mime){
+    const blob=new Blob([text],{type:mime||'application/octet-stream'});
+    const url=URL.createObjectURL(blob); const a=document.createElement('a');
+    a.href=url; a.download=filename; document.body.appendChild(a); a.click();
+    setTimeout(function(){ document.body.removeChild(a); URL.revokeObjectURL(url); },100);
+  }
+  function doExportJSON(){
+    S.exportJSON({inlinePhotos:true}).then(function(text){
+      const d=new Date(); const stamp=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+      download('crochet-stash-backup-'+stamp+'.json', text, 'application/json');
+      toast('Backup downloaded.');
+    });
+  }
+  function doImport(){
+    const inp=$('import-file');
+    inp.value='';
+    inp.onchange=function(){
+      const file=inp.files && inp.files[0]; if(!file) return;
+      const mode = confirm('Import mode:\n\nOK = MERGE into your current stash (recommended)\nCancel = REPLACE everything with the file') ? 'merge' : 'replace';
+      const fr=new FileReader();
+      fr.onload=function(){
+        S.importJSON(fr.result, {mode:mode}).then(function(r){
+          const rep=$('import-report');
+          rep.innerHTML='<div class="banner '+(r.errors.length?'warn':'')+'" style="margin-top:12px">'+
+            'Import ('+mode+'): <b>'+r.added+'</b> added, <b>'+r.updated+'</b> updated, <b>'+r.skipped+'</b> skipped.'+
+            (r.errors.length?('<br>'+r.errors.map(esc).join('<br>')):'')+'</div>';
+          toast('Import finished.'); renderCurrentView();
+        }).catch(function(){ toast('Import failed unexpectedly — your data was not changed.'); });
+      };
+      fr.onerror=function(){ toast('Could not read that file.'); };
+      fr.readAsText(file);
+    };
+    inp.click();
+  }
+
+  /* ---------- demo + self-test ---------- */
+  function loadDemo(){
+    const demo=[
+      {id:'demo-1',brand:'Lion Brand',line:'Wool-Ease',colorName:'Fisherman',colorHex:'#e8e2d0',dyeLot:'A123',weightCategory:4,fiber:'80% acrylic / 20% wool',yardsPerSkein:197,gramsPerSkein:85,skeinsOnHand:3,gaugeStitches:18,gaugeRows:24,hookSizeMm:5.0,notes:'Sample data'},
+      {id:'demo-2',brand:'Lion Brand',line:'Wool-Ease',colorName:'Cranberry',colorHex:'#8d1f2d',dyeLot:'B201',weightCategory:4,fiber:'80% acrylic / 20% wool',yardsPerSkein:197,gramsPerSkein:85,skeinsOnHand:2,gaugeStitches:18,gaugeRows:24,hookSizeMm:5.0,notes:'Sample data'},
+      {id:'demo-3',brand:'Bernat',line:'Blanket',colorName:'Teal',colorHex:'#1f6f6f',dyeLot:'T55',weightCategory:6,fiber:'100% polyester',yardsPerSkein:220,gramsPerSkein:300,skeinsOnHand:4,gaugeStitches:11,gaugeRows:14,hookSizeMm:8.0,notes:'Sample data'},
+      {id:'demo-4',brand:'Paintbox',line:'Simply DK',colorName:'Sunshine Yellow',colorHex:'#f4c430',dyeLot:'Y09',weightCategory:3,fiber:'100% acrylic',yardsPerSkein:301,gramsPerSkein:100,skeinsOnHand:1,gaugeStitches:22,gaugeRows:28,hookSizeMm:4.0,notes:'Sample data'},
+      {id:'demo-5',brand:'WeCrochet',line:'Dishie',colorName:'Cream',colorHex:'#f3ead3',dyeLot:'C12',weightCategory:4,fiber:'100% cotton',yardsPerSkein:190,gramsPerSkein:100,skeinsOnHand:5,gaugeStitches:20,gaugeRows:26,hookSizeMm:4.5,notes:'Sample data'},
+      {id:'demo-6',brand:'Malabrigo',line:'Rios',colorName:'Glazed Carrot',colorHex:'#c8642b',dyeLot:'M77',weightCategory:4,fiber:'100% superwash merino wool',yardsPerSkein:210,gramsPerSkein:100,skeinsOnHand:2,gaugeStitches:18,gaugeRows:24,hookSizeMm:5.0,notes:'Sample data'},
+      {id:'demo-7',brand:'Lion Brand',line:'Pound of Love',colorName:'Antique White',colorHex:'#efe9dd',dyeLot:'P03',weightCategory:4,fiber:'100% acrylic',yardsPerSkein:1020,gramsPerSkein:454,skeinsOnHand:1,gaugeStitches:16,gaugeRows:20,hookSizeMm:5.5,notes:'Sample data'},
+      {id:'demo-8',brand:'Red Heart',line:'Super Saver',colorName:'Soft Navy',colorHex:'#2f3b54',dyeLot:'N40',weightCategory:4,fiber:'100% acrylic',yardsPerSkein:364,gramsPerSkein:198,skeinsOnHand:2,gaugeStitches:16,gaugeRows:20,hookSizeMm:5.5,notes:'Sample data'}
+    ];
+    const projects=[
+      {id:'demo-proj-1',name:'Striped baby blanket',patternRef:'Sample pattern',status:'wip',notes:'Sample project'},
+      {id:'demo-proj-2',name:'Kitchen dishcloths',patternRef:'',status:'queued',notes:'Sample project'}
+    ];
+    // route through real write paths
+    let chain=Promise.resolve();
+    demo.forEach(function(d){ chain=chain.then(function(){ return S.upsertStashItem(d); }); });
+    chain.then(function(){
+      projects.forEach(function(p){ S.saveProject(p); });
+      S.assignStash('demo-1','demo-proj-1');
+      S.assignStash('demo-2','demo-proj-1');
+      S.assignStash('demo-5','demo-proj-2');
+      toast('Demo data loaded.'); renderCurrentView();
+    });
+  }
+  function clearAll(){
+    if(!confirm('Delete ALL yarn, projects and photos? This cannot be undone (export a backup first if unsure).')) return;
+    const items=S.getStashItems();
+    let chain=Promise.resolve();
+    items.forEach(function(it){ chain=chain.then(function(){ return S.deleteStashItem(it.id); }); });
+    chain.then(function(){
+      S.getProjects().forEach(function(p){ S.deleteProject(p.id); });
+      toast('All data cleared.'); renderCurrentView();
+    });
+  }
+  function runSelfTest(){
+    const out=$('selftest-out'); out.innerHTML='<div class="muted" style="margin-top:10px">Running…</div>';
+    const lines=[];
+    function add(name, pass, detail){ lines.push({name:name,pass:!!pass,detail:detail||''}); }
+
+    // 1) coercion turns messy input into clean data
+    try{
+      const c=S.coerceStashItem({brand:'  Lion  ',yardsPerSkein:'abc',skeinsOnHand:-3,weightCategory:'4',colorHex:'e8e2d0',extra:'should drop'});
+      add('Validation cleans messy input', c.brand==='Lion' && c.yardsPerSkein===null && c.skeinsOnHand===0 && c.weightCategory===4 && c.colorHex==='#e8e2d0' && !('extra' in c));
+    }catch(e){ add('Validation cleans messy input', false, e.message); }
+
+    // 2) migration seam bumps an old store up to the current version
+    try{ const m=S.migrate({schemaVersion:0,items:[],projects:[],settings:{}}); add('Migration upgrades old data to v'+S.SCHEMA_VERSION, m.schemaVersion===S.SCHEMA_VERSION); }
+    catch(e){ add('Migration upgrades old data', false, e.message); }
+
+    // 3) export is round-trip stable (non-destructive: reads only)
+    S.exportJSON({inlinePhotos:false}).then(function(text){
+      let stable=false, parsed=null;
+      try{
+        parsed=JSON.parse(text);
+        const re=parsed.items.map(function(i){return S.coerceStashItem(i,{generateId:false});});
+        stable = JSON.stringify(parsed.items)===JSON.stringify(re) && parsed.format===S.EXPORT_FORMAT;
+      }catch(_){}
+      add('Backup file is valid & round-trip stable', stable);
+
+      // 4) import safely rejects garbage WITHOUT touching your data
+      return S.importJSON('{ this is not valid json', {mode:'merge'});
+    }).then(function(r){
+      add('Import safely rejects a broken file', r.errors.length>0 && r.added===0 && r.updated===0);
+      out.innerHTML = lines.map(function(l){ return '<div class="testline">'+(l.pass?'<span class="ok">✓ PASS</span>':'<span class="no">✗ FAIL</span>')+' '+esc(l.name)+(l.detail?(' — '+esc(l.detail)):'')+'</div>'; }).join('')+
+        '<div style="margin-top:8px;font-weight:800;color:'+(lines.every(function(l){return l.pass;})?'var(--good)':'var(--bad)')+'">'+
+        (lines.every(function(l){return l.pass;})?'All checks passed ✓':'Some checks FAILED ✗')+'</div>';
+    });
+  }
+
+  /* ---------- modal + global click handling ---------- */
+  function openModal(title, bodyHTML){
+    $('modal-inner').innerHTML='<div class="modal-head"><h2>'+esc(title)+'</h2><button class="btn ghost small" data-action="closemodal">✕</button></div><div class="modal-body">'+bodyHTML+'</div>';
+    $('modal').classList.remove('hidden');
+  }
+  function closeModal(){
+    $('modal').classList.add('hidden'); $('modal-inner').innerHTML='';
+    revokeBucket(_modalUrls);
+    if(formPhotoPreviewUrl){ try{URL.revokeObjectURL(formPhotoPreviewUrl);}catch(_){} formPhotoPreviewUrl=null; }
+  }
+  $('modal').addEventListener('click', function(e){ if(e.target===$('modal')) closeModal(); });
+
+  document.addEventListener('click', function(e){
+    const el=e.target.closest('[data-action]'); if(!el) return;
+    const a=el.getAttribute('data-action'); const id=el.getAttribute('data-id');
+    switch(a){
+      case 'view': switchView(id); break;
+      case 'add': openItemForm(null); break;
+      case 'detail': openDetail(id); break;
+      case 'edititem': closeModal(); openItemForm(id); break;
+      case 'delitem':
+        if(confirm('Delete this yarn? (You can restore from a backup if needed.)')) S.deleteStashItem(id).then(function(){ closeModal(); toast('Deleted.'); renderCurrentView(); });
+        break;
+      case 'saveitem': saveItem(false); break;
+      case 'saveadd': saveItem(true); break;
+      case 'rmphoto': removePhotoFlag=true; pendingPhotoFile=null; { const img=$('f-photo-img'); if(img){img.src='';img.style.display='none';} } toast('Photo will be removed on save.'); break;
+      case 'step': { const inp=$('f-skeins'); const cur=parseInt(inp.value||'0',10)||0; inp.value=Math.max(0,cur+parseInt(id,10)); break; }
+      case 'fweight': { const w=(id==='unknown')?'unknown':parseInt(id,10); UI.fWeight=(UI.fWeight===w)?null:w; renderStash(); break; }
+      case 'clearfilters': UI.search=''; UI.fWeight=null; UI.fFiber=null; UI.fBrand=''; renderStash(); break;
+      case 'addproj': openProjectForm(null); break;
+      case 'editproj': closeModal(); openProjectForm(id); break;
+      case 'saveproj': { const partial={id:id||undefined,name:$('p-name').value,patternRef:$('p-ref').value,status:$('p-status').value,notes:$('p-notes').value}; S.saveProject(partial); closeModal(); toast('Project saved.'); renderCurrentView(); break; }
+      case 'delproj': if(confirm('Delete this project? The yarn stays in your stash (it just becomes free).')){ S.deleteProject(id); toast('Project deleted.'); renderCurrentView(); } break;
+      case 'viewproj': openProjectDetail(id); break;
+      case 'assignto': S.assignStash(id, el.getAttribute('data-proj')); openProjectDetail(el.getAttribute('data-proj')); renderStorageMeter(); break;
+      case 'unassign': S.assignStash(id, null); openProjectDetail(currentProjectDetailId()); renderStorageMeter(); break;
+      case 'exportjson': doExportJSON(); break;
+      case 'importjson': doImport(); break;
+      case 'exportcsv': download('crochet-stash.csv', S.exportCSV(), 'text/csv'); toast('CSV downloaded.'); break;
+      case 'demo': loadDemo(); break;
+      case 'cleardemo': clearAll(); break;
+      case 'selftest': runSelfTest(); break;
+      case 'closemodal': closeModal(); break;
+    }
+  });
+  // remember which project detail is open (for unassign re-render)
+  let _openProj=null; const _origOpenProjectDetail=openProjectDetail;
+  openProjectDetail=function(id){ _openProj=id; return _origOpenProjectDetail(id); };
+  function currentProjectDetailId(){ return _openProj; }
+  document.addEventListener('change', function(e){
+    const el=e.target.closest('[data-action]'); if(!el) return;
+    if(el.getAttribute('data-action')==='projstatus'){ S.saveProject({id:el.getAttribute('data-id'),status:el.value}); toast('Status updated.'); renderProjects(); }
+  });
+  document.addEventListener('keydown', function(e){ if(e.key==='Escape' && !$('modal').classList.contains('hidden')) closeModal(); });
+
+  /* ---------- boot ---------- */
+  function showNewerBanner(){ $('banner-area').innerHTML='<div class="banner warn">This data was saved by a newer version of the app. It still works, but to be safe, avoid overwriting and consider updating.</div>'; }
+  window.addEventListener('crochetstash:quota', function(){ $('banner-area').innerHTML='<div class="banner bad">Storage is full — your last change may not have been saved. Export a backup, then remove some photos or items.</div>'; });
+
+  S.subscribe(function(){ renderCurrentView(); });
+  S.loadStore();
+  if(S._isNewerVersionSeen()) showNewerBanner();
+  switchView('stash');
+})();
+</script>
+</body>
+</html>
