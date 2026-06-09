@@ -1,0 +1,16 @@
+{
+  "name": "Crochet Stash Manager",
+  "short_name": "Stash",
+  "description": "Keep track of the yarn you own — works offline, data stays on your device.",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#fbf7f0",
+  "theme_color": "#b5651d",
+  "icons": [
+    { "src": "icons/icon-192.png", "type": "image/png", "sizes": "192x192" },
+    { "src": "icons/icon-512.png", "type": "image/png", "sizes": "512x512" },
+    { "src": "icons/icon-512.png", "type": "image/png", "sizes": "512x512", "purpose": "maskable" }
+  ]
+}
