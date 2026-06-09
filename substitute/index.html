@@ -1,0 +1,719 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Crochet Toolkit — Substitution Calculator</title>
+<meta name="theme-color" content="#6a4a9c">
+<meta name="color-scheme" content="light">
+<meta name="format-detection" content="telephone=no">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Substitute">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<link rel="icon" type="image/png" href="icons/icon-192.png">
+<link rel="manifest" href="manifest.webmanifest">
+<!--
+  Crochet Toolkit · Module 3 · Substitution + Yardage Calculator  (mobile / installable PWA)
+  ------------------------------------------------------------------------------
+  "The pattern calls for yarn X. I have / want yarn Y. Will it work, and how many skeins?"
+  Compares weight, gauge, and fiber, and works out skeins needed. Add it to your iPhone Home
+  Screen to use it like an app, offline. Everything runs on your device.
+
+  - It can READ the yarn you saved in the Stash Manager (same website) to suggest substitutes
+    from yarn you already own. It only reads the stash; it never changes it.
+  - Optional: look up a yarn by name on Ravelry (needs a tiny proxy you set up once — see
+    proxy/README.md). The app is fully usable without it (type details in, or use your stash).
+
+  NOTE FOR THE CROCHETER: the builder doesn't crochet. The "will it work" thresholds (gauge %,
+  weight rules, fiber tradeoffs) are flagged guesses you can edit in Settings — gauge is the real
+  decider, so always swatch before committing.
+-->
+<style>
+  :root{
+    --bg:#fbf7f0; --panel:#ffffff; --ink:#2e2a26; --muted:#857a6d; --line:#e7ddcf;
+    --accent:#6a4a9c; --accent-soft:#e9e2f3; --good:#3f7d4e; --warn:#b07b00; --bad:#b23b3b;
+    --chip:#efeaf4; --shadow:0 1px 3px rgba(60,40,20,.08), 0 6px 18px rgba(60,40,20,.06);
+    --greenbg:#e7f1e9; --yellowbg:#fbf0d8; --redbg:#fae3e0;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{font:16px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;color:var(--ink);background:var(--bg);-webkit-text-size-adjust:100%}
+  .wrap{max-width:920px;margin:0 auto;padding:0 calc(14px + env(safe-area-inset-right)) calc(120px + env(safe-area-inset-bottom)) calc(14px + env(safe-area-inset-left))}
+  header.app{padding:calc(16px + env(safe-area-inset-top)) 0 8px;display:flex;align-items:baseline;flex-wrap:wrap}
+  header.app h1{font-size:21px;margin:0 10px 0 0;font-weight:800;letter-spacing:.2px}
+  header.app .sub{color:var(--muted);font-size:13px}
+  .muted{color:var(--muted)} .small{font-size:12.5px}
+  button{font-family:inherit}
+  .btn{border:1px solid var(--line);background:var(--panel);color:var(--ink);padding:9px 14px;border-radius:10px;font-weight:700;font-size:14px;cursor:pointer}
+  .btn:hover{border-color:var(--accent)}
+  .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  .btn.ghost{background:transparent}
+  .btn.small{padding:6px 10px;font-size:13px;border-radius:8px}
+  .row{display:flex;flex-wrap:wrap;align-items:center;margin-bottom:-8px}
+  .row > *{margin:0 8px 8px 0}
+  .spacer{flex:1}
+  nav.seg{display:flex;background:var(--chip);padding:5px;border-radius:12px;margin:6px 0 14px;position:-webkit-sticky;position:sticky;top:8px;z-index:20;box-shadow:var(--shadow)}
+  nav.seg button{flex:1;border:0;background:transparent;color:var(--muted);font-weight:700;font-size:13.5px;padding:9px 6px;border-radius:9px;cursor:pointer}
+  nav.seg button + button{margin-left:6px}
+  nav.seg button.active{background:var(--panel);color:var(--ink);box-shadow:var(--shadow)}
+  .view.hidden{display:none}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px;box-shadow:var(--shadow);margin-bottom:14px}
+  .card h2{margin:0 0 2px;font-size:16px}
+  .card .cap{font-size:12.5px;color:var(--muted);margin:0 0 8px}
+  .field{margin:9px 0}
+  .field > label{display:block;font-size:11px;font-weight:700;color:var(--muted);margin:0 0 4px 2px;text-transform:uppercase;letter-spacing:.4px}
+  input[type=number],input[type=text],input[type=url],select{width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:10px;background:#fffdf9;color:var(--ink);font-size:15px}
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .three{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+  .hint{font-size:12px;color:var(--muted);margin-top:4px}
+  .toggle{display:flex;align-items:center;border:1px solid var(--line);border-radius:10px;padding:8px 11px;background:#fffdf9;font-size:14px}
+  .toggle input{margin:0 8px 0 0;width:auto}
+  .radio{display:flex;align-items:center;font-size:14px;margin:4px 0}
+  .radio input{width:auto;margin:0 8px 0 0}
+  details{border:1px solid var(--line);border-radius:10px;padding:8px 11px;background:#fffdf9;margin-top:6px}
+  details summary{font-weight:700;font-size:14px;cursor:pointer}
+  /* verdict */
+  #verdict-bar{position:fixed;left:0;right:0;bottom:0;z-index:30;background:var(--panel);border-top:1px solid var(--line);box-shadow:0 -6px 20px rgba(0,0,0,.08);padding:10px calc(14px + env(safe-area-inset-right)) calc(10px + env(safe-area-inset-bottom)) calc(14px + env(safe-area-inset-left))}
+  #verdict-bar.hidden{display:none}
+  .vchip{display:inline-block;font-weight:800;font-size:13px;padding:3px 11px;border-radius:999px;margin-right:8px}
+  .vchip.green{background:var(--greenbg);color:var(--good)} .vchip.yellow{background:var(--yellowbg);color:var(--warn)} .vchip.red{background:var(--redbg);color:var(--bad)}
+  .vhead{font-weight:800;font-size:15px}
+  .vskeins{font-size:14px;margin-top:4px}
+  .reasons{margin:8px 0 0;padding:0;list-style:none;font-size:13.5px}
+  .reasons li{display:flex;align-items:flex-start;margin:3px 0}
+  .reasons .dot{flex:0 0 auto;width:8px;height:8px;border-radius:50%;margin:6px 8px 0 0;background:var(--muted)}
+  .reasons li.good .dot{background:var(--good)} .reasons li.caution .dot{background:var(--warn)} .reasons li.bad .dot{background:var(--bad)} .reasons li.info .dot{background:var(--muted)}
+  .fix{font-size:13.5px;margin-top:6px;font-weight:700;color:var(--accent)}
+  /* stash results */
+  .resitem{border:1px solid var(--line);border-radius:11px;padding:10px;background:#fffdf9;margin-bottom:8px;cursor:pointer}
+  .resitem:hover{border-color:var(--accent)}
+  .resitem .top{display:flex;align-items:center}
+  .resitem .top > * + *{margin-left:8px}
+  .badge{display:inline-block;font-size:11px;font-weight:800;padding:1px 8px;border-radius:999px}
+  .badge.green{background:var(--greenbg);color:var(--good)} .badge.yellow{background:var(--yellowbg);color:var(--warn)} .badge.red{background:var(--redbg);color:var(--bad)}
+  .swatch{width:18px;height:18px;border-radius:5px;border:1px solid rgba(0,0,0,.12);flex:0 0 auto}
+  /* banners / dialogs / toast (reused, older-iOS-safe) */
+  .banner{border-radius:10px;padding:10px 12px;margin:0 0 12px;font-size:14px;display:flex;align-items:center}
+  .banner > * + *{margin-left:10px}
+  .banner.warn{background:#fff4d6;border:1px solid #ecd496;color:#705600}
+  .banner.bad{background:#fdeaea;border:1px solid #edc4c4;color:#7d2a2a}
+  .assumptions{font-size:12px;color:var(--muted);background:var(--accent-soft);border:1px solid #d6cae8;border-radius:10px;padding:10px 12px;margin-top:6px}
+  .assumptions b{color:var(--accent)}
+  .steps{margin:0;padding-left:20px;font-size:14px}.steps li{margin:0 0 6px}
+  .testline{font-size:13.5px;padding:4px 0;border-bottom:1px dashed var(--line)}
+  .testline .ok{color:var(--good);font-weight:800} .testline .no{color:var(--bad);font-weight:800}
+  #dialog{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(40,28,52,.5);display:flex;align-items:center;justify-content:center;z-index:90;padding:24px}
+  #dialog.hidden{display:none}
+  .dialog-card{background:var(--bg);width:100%;max-width:380px;border-radius:16px;padding:18px;box-shadow:0 10px 40px rgba(0,0,0,.3)}
+  .dialog-msg{font-size:15px;margin-bottom:16px;line-height:1.45}
+  .dialog-actions{display:flex;justify-content:flex-end}.dialog-actions > * + *{margin-left:8px}
+  #modal{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(40,28,52,.45);display:flex;align-items:flex-end;justify-content:center;z-index:50}
+  #modal.hidden{display:none}
+  .modal-card{background:var(--bg);width:100%;max-width:640px;max-height:92vh;overflow:auto;-webkit-overflow-scrolling:touch;border-radius:18px 18px 0 0;box-shadow:0 -8px 30px rgba(0,0,0,.2)}
+  @media(min-width:620px){#modal{align-items:center}.modal-card{border-radius:18px}}
+  .modal-head{position:-webkit-sticky;position:sticky;top:0;background:var(--bg);display:flex;align-items:center;padding:14px 16px;border-bottom:1px solid var(--line);z-index:2}
+  .modal-head h2{margin:0;font-size:18px;flex:1}.modal-head > * + *{margin-left:10px}
+  .modal-body{padding:14px 16px calc(16px + env(safe-area-inset-bottom))}
+  #toast{position:fixed;left:50%;bottom:96px;transform:translateX(-50%);background:#2a2433;color:#fff;padding:11px 16px;border-radius:10px;font-size:14px;box-shadow:0 6px 20px rgba(0,0,0,.25);z-index:80;max-width:90vw;text-align:center}
+  #toast.hidden{display:none}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="app">
+    <h1>🧮 Substitute</h1>
+    <span class="sub">Crochet Toolkit · will this yarn work, &amp; how many skeins?</span>
+  </header>
+
+  <div id="banner-area"></div>
+
+  <nav class="seg">
+    <button data-view="compare" class="active">Compare</button>
+    <button data-view="stash">Find in stash</button>
+    <button data-view="settings">Settings</button>
+  </nav>
+
+  <!-- ============ COMPARE ============ -->
+  <section id="view-compare" class="view">
+    <div class="card">
+      <h2>1 · Yarn the pattern calls for</h2>
+      <div class="cap">The yarn in the pattern (your "target").</div>
+      <div id="t-fields"></div>
+      <div class="row" style="margin-top:8px">
+        <button class="btn small" data-action="pick-stash" data-side="t">From my stash</button>
+        <button class="btn small ravelry-btn" data-action="pick-ravelry" data-side="t" style="display:none">Look up on Ravelry</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>2 · Yarn you want to use</h2>
+      <div class="cap">The yarn you'd swap in (your "candidate").</div>
+      <div id="c-fields"></div>
+      <div class="row" style="margin-top:8px">
+        <button class="btn small primary" data-action="goto-stash">Find substitutes in my stash</button>
+        <button class="btn small" data-action="pick-stash" data-side="c">From my stash</button>
+        <button class="btn small ravelry-btn" data-action="pick-ravelry" data-side="c" style="display:none">Look up on Ravelry</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>3 · How much yarn?</h2>
+      <div class="cap">So we can work out how many skeins of the new yarn you'd need.</div>
+      <div class="radio"><input type="radio" name="ymode" id="ym-direct" value="direct" checked><label for="ym-direct">The pattern lists a total amount</label></div>
+      <div id="ym-direct-fields" class="field"><label>Total the pattern needs</label>
+        <div class="two"><input type="number" id="y-total" min="0" step="any" placeholder="e.g. 1200"><select id="y-unit"><option value="yd">yards</option><option value="m">meters</option></select></div>
+      </div>
+      <div class="radio"><input type="radio" name="ymode" id="ym-skeins" value="skeins"><label for="ym-skeins">The pattern lists skeins of its yarn</label></div>
+      <div id="ym-skeins-fields" class="field" style="display:none">
+        <div class="two">
+          <div><label class="small" style="display:block;color:var(--muted);margin-bottom:3px">Skeins it calls for</label><input type="number" id="y-oskeins" min="0" step="any" placeholder="e.g. 6"></div>
+          <div><label class="small" style="display:block;color:var(--muted);margin-bottom:3px">Yards in each of those</label><input type="number" id="y-oyps" min="0" step="any" placeholder="e.g. 197"></div>
+        </div>
+      </div>
+      <details>
+        <summary>Different size / extra <span class="muted">(optional)</span></summary>
+        <div class="two" style="margin-top:8px">
+          <div><label class="small" style="display:block;color:var(--muted);margin-bottom:3px">Size factor</label><input type="number" id="y-sizefactor" min="0" step="0.05" placeholder="1.0"></div>
+          <div><label class="small" style="display:block;color:var(--muted);margin-bottom:3px">Add waste %</label><input type="number" id="y-waste" min="0" max="100" step="1" placeholder="0"></div>
+        </div>
+        <div class="hint">A bigger size needs more yarn — roughly ×1.15–1.4 per size up (yarn scales with area, not length). This is a manual guess; we never auto-grade a pattern.</div>
+      </details>
+    </div>
+
+    <div class="row">
+      <button class="btn" data-action="example">Load example</button>
+      <button class="btn ghost" data-action="clearall">Clear</button>
+      <span class="spacer"></span>
+      <button class="btn small" data-action="share">Share verdict</button>
+    </div>
+  </section>
+
+  <!-- ============ FIND IN STASH ============ -->
+  <section id="view-stash" class="view hidden">
+    <div class="card">
+      <h2>Find substitutes in my stash</h2>
+      <div class="cap">Scores every yarn you own against the <b>target</b> from the Compare tab.</div>
+      <div id="stash-target-summary" class="hint"></div>
+      <div class="row" style="margin-top:8px"><button class="btn primary" data-action="rank-stash">Rank my stash</button></div>
+    </div>
+    <div id="stash-results"></div>
+  </section>
+
+  <!-- ============ SETTINGS ============ -->
+  <section id="view-settings" class="view hidden">
+    <div class="card">
+      <h2>📲 Use it as an app</h2>
+      <div id="install-body"></div>
+    </div>
+    <div class="card">
+      <h2>Ravelry look-up <span class="muted small">(optional)</span></h2>
+      <div class="cap">Paste your Ravelry proxy URL to look up yarns by name. Don't have one? The app works fully without it — see <code>proxy/README.md</code>.</div>
+      <div class="field"><label>Proxy URL</label><input type="url" id="set-proxy" placeholder="https://…workers.dev"></div>
+      <div class="row"><button class="btn" data-action="save-proxy">Save</button><button class="btn ghost" data-action="test-proxy">Test connection</button></div>
+      <div id="proxy-status" class="hint"></div>
+    </div>
+    <div class="card">
+      <h2>Assumptions you can edit <span class="muted small">(rule 9)</span></h2>
+      <div class="cap">Gauge is the real decider. These thresholds are flagged guesses — adjust to taste.</div>
+      <div class="three">
+        <div><label class="small" style="display:block;color:var(--muted);margin-bottom:3px">"Matches" ≤%</label><input type="number" id="set-tight" min="0" step="1"></div>
+        <div><label class="small" style="display:block;color:var(--muted);margin-bottom:3px">"Workable" ≤%</label><input type="number" id="set-workable" min="0" step="1"></div>
+        <div><label class="small" style="display:block;color:var(--muted);margin-bottom:3px">"Risky" ≤%</label><input type="number" id="set-risky" min="0" step="1"></div>
+      </div>
+      <div class="row" style="margin-top:8px"><button class="btn" data-action="save-bands">Save thresholds</button><button class="btn ghost" data-action="reset-bands">Reset</button></div>
+      <div class="assumptions" style="margin-top:10px"><b>For the crocheter:</b> gauge (stitches per 4&nbsp;in) decides whether a substitute makes the right size — within ~10% is usually workable with a hook change. Weight category is a cross-check; fiber changes drape/warmth/care but rarely stops a swap. These defaults aren't verified game-truth — see <code>docs/research-prompts/substitution.md</code>. Always swatch.</div>
+    </div>
+    <div class="card">
+      <h2>Check it works</h2>
+      <div class="row"><button class="btn" data-action="selftest">Run self-test</button></div>
+      <div id="selftest-out"></div>
+    </div>
+  </section>
+</div>
+
+<div id="verdict-bar" class="hidden"></div>
+<div id="modal" class="hidden"><div class="modal-card"><div id="modal-inner"></div></div></div>
+<div id="dialog" class="hidden"><div class="dialog-card"></div></div>
+<div id="toast" class="hidden"></div>
+
+<script>
+"use strict";
+/* ==========================================================================
+   PART 1 — CALC (pure, no DOM). The single source of truth for verdicts +
+   skeins. Exposed on window.SubCalc so the self-test can check it.
+   ========================================================================== */
+(function(){
+  var WEIGHT_LABELS={0:'Lace',1:'Super Fine',2:'Fine',3:'Light',4:'Medium',5:'Bulky',6:'Super Bulky',7:'Jumbo'};
+  // Flagged, editable thresholds (% of stitches-per-4in). Gauge is the real decider.
+  var GAUGE_BANDS={tight:5, workable:10, risky:15};
+  var ADJACENT_WORKABLE=true;
+
+  function numOrNull(x){ if(x===''||x==null) return null; var n=Number(x); return isFinite(n)?n:null; }
+  function str(x){ return x==null?'':String(x); }
+  function round1(n){ return Math.round(n*10)/10; }
+  function normLabel(s){ return String(s||'').toLowerCase().replace(/\s+/g,' ').trim(); }
+
+  // ---- fiber: reuse the stash/chart fiberBucket() VERBATIM for cross-module consistency ----
+  function fiberBucket(fiber){
+    var f=(fiber||'').toLowerCase(); if(!f.trim()) return 'other';
+    var hits=[];
+    if(f.indexOf('acryl')>=0) hits.push('acrylic');
+    if(/wool|merino|alpaca|mohair|cashmere/.test(f)) hits.push('wool/animal');
+    if(f.indexOf('cotton')>=0) hits.push('cotton');
+    if(/nylon|polyester|\bpoly\b|bamboo|rayon|silk|linen|acetate/.test(f)) hits.push('synthetic/other');
+    if(hits.length===0) return 'other';
+    if(hits.length>1) return 'blend';
+    return hits[0];
+  }
+  function classifyFiber(t){ return fiberBucket(t); }
+  var FIBER_NOTES={
+    'acrylic':'acrylic is easy-care and won\'t felt, but it\'s less breathable and won\'t block into shape like wool',
+    'wool/animal':'wool/animal is warm and blocks beautifully, but can felt and often wants hand-washing',
+    'cotton':'cotton has crisp stitch definition but no stretch or memory — it can sag or grow',
+    'synthetic/other':'this fiber can change drape and care — check the ball band',
+    'blend':'a blend — drape and care fall between its fibers'
+  };
+  function fiberTradeoff(tb,cb){ return 'Swapping '+tb+' for '+cb+': '+(FIBER_NOTES[cb]||'drape, warmth and care may differ.'); }
+
+  // ---- weight ----
+  function weightAdjacency(a,b){ if(a==null||b==null) return 'unknown'; var d=Math.abs(a-b); return d===0?'exact':(d===1?'adjacent':'far'); }
+  // Ravelry yarn_weight.name -> CYC 0-7 (defensive; null on miss, never silent-worsted)
+  var RAVELRY_WEIGHT_MAP={'thread':0,'cobweb':0,'lace':0,'light fingering':0,
+    'fingering':1,'sock':1,'super fine':1,'4 ply':1,
+    'sport':2,'baby':2,'fine':2,'5 ply':2,
+    'dk':3,'double knitting':3,'light':3,'light worsted':3,'8 ply':3,
+    'worsted':4,'aran':4,'afghan':4,'medium':4,'10 ply':4,'12 ply':4,
+    'bulky':5,'chunky':5,'craft':5,'rug':5,
+    'super bulky':6,'super chunky':6,'roving':6,
+    'jumbo':7};
+  function mapRavelryWeight(name){ if(!name) return null; var k=String(name).toLowerCase().replace(/[^a-z0-9 ]/g,'').replace(/\s+/g,' ').trim(); return (RAVELRY_WEIGHT_MAP[k]!=null)?RAVELRY_WEIGHT_MAP[k]:null; }
+  function weightFromGauge(s){ if(!(s>0)) return null; if(s>=20)return 1; if(s>=16)return 2; if(s>=14)return 3; if(s>=11)return 4; if(s>=8)return 5; if(s>=7)return 6; return 7; }
+
+  // ---- gauge ----
+  function gaugeDeltaPct(a,b){ if(!(a>0)||!(b>0)) return null; return Math.abs(b-a)/a*100; }
+  function gaugeCompatible(a,b){ var d=gaugeDeltaPct(a,b); return d==null?null:(d<=GAUGE_BANDS.workable); }
+
+  function worse(a,b){ var rank={green:0,yellow:1,red:2}; return rank[b]>rank[a]?b:a; }
+
+  // ---- the verdict ----
+  function substitutionScore(t, c){
+    t=t||{}; c=c||{};
+    var reasons=[], fix=null;
+    // identical / same-line short-circuits
+    if(t.label && c.label){
+      var tl=normLabel(t.label), cl=normLabel(c.label);
+      if(tl && tl===cl){ return {tier:'green', headline:'Same yarn', reasons:[{tone:'good',text:'This is the same yarn.'},{tone:'info',text:'Always swatch before committing.'}], fix:null}; }
+    }
+    var gd=gaugeDeltaPct(t.gaugeStitches, c.gaugeStitches);
+    var gaugeKnown=(t.gaugeStitches>0 && c.gaugeStitches>0);
+    var tier='green';
+    if(gaugeKnown){
+      var heavier=(c.gaugeStitches<t.gaugeStitches); // fewer sts = heavier yarn
+      if(gd<=GAUGE_BANDS.tight){ reasons.push({tone:'good',text:'Gauge matches ('+round1(gd)+'% off).'}); }
+      else if(gd<=GAUGE_BANDS.workable){ reasons.push({tone:'good',text:'Gauge within '+GAUGE_BANDS.workable+'% ('+round1(gd)+'% off) — workable, maybe nudge hook size.'}); }
+      else if(gd<=GAUGE_BANDS.risky){ tier=worse(tier,'yellow'); reasons.push({tone:'caution',text:'Gauge a bit off ('+round1(gd)+'%) — go one hook size '+(heavier?'down':'up')+' and swatch.'}); fix='Swatch with a different hook to hit the gauge.'; }
+      else { tier=worse(tier,'red'); reasons.push({tone:'bad',text:'Gauge differs ~'+round1(gd)+'% — the finished size would be off.'}); fix='Pick a yarn closer in gauge, or expect a different size.'; }
+    } else {
+      tier=worse(tier,'yellow');
+      reasons.push({tone:'caution',text:'Gauge not entered on both yarns — swatch before trusting this.'});
+    }
+    // weight cross-check
+    var wa=weightAdjacency(t.weightCategory, c.weightCategory);
+    if(gaugeKnown){
+      if(wa==='exact') reasons.push({tone:'good',text:'Same weight category.'});
+      else if(wa==='adjacent') reasons.push({tone:'caution',text:'One weight category apart — usually fine with a hook change; the gauge is what matters.'});
+      else if(wa==='far'){ tier=worse(tier,'yellow'); reasons.push({tone:'caution',text:'Gauge matches but it\'s '+Math.abs(t.weightCategory-c.weightCategory)+' weight categories apart — double-check the fabric feels right.'}); }
+      else reasons.push({tone:'info',text:'Weight category not set on one side.'});
+    } else {
+      if(wa==='exact') reasons.push({tone:'caution',text:'Same weight category — but enter gauge to be sure.'});
+      else if(wa==='adjacent') reasons.push({tone:'caution',text:'One weight category apart — enter gauge to be sure.'});
+      else if(wa==='far'){ tier=worse(tier,'red'); reasons.push({tone:'bad',text:'Different weight ('+Math.abs(t.weightCategory-c.weightCategory)+' categories apart) and no gauge entered — likely the wrong fabric.'}); fix='Enter the stitch gauge (per 4 in) for both yarns.'; }
+      else { tier=worse(tier,'red'); reasons.push({tone:'bad',text:'Not enough info yet — enter the stitch gauge for both yarns.'}); fix='Enter the stitch gauge (per 4 in) for both yarns.'; }
+    }
+    // fiber modifier (demote at most one step; yellow->red only when gauge already risky)
+    var tb=classifyFiber(t.fiber), cb=classifyFiber(c.fiber);
+    if(tb!=='other' && cb!=='other'){
+      if(tb===cb){ reasons.push({tone:'good',text:'Same fiber family ('+cb+').'}); }
+      else {
+        reasons.push({tone:'caution',text:fiberTradeoff(tb,cb)});
+        if(tier==='green') tier='yellow';
+        else if(tier==='yellow' && gaugeKnown && gd>GAUGE_BANDS.workable) tier='red';
+      }
+    } else {
+      reasons.push({tone:'info',text:'Fiber unknown — drape, warmth and care may differ.'});
+    }
+    if(/superwash/i.test(c.fiber||'')) reasons.push({tone:'info',text:'Superwash wool can grow / stretch when wet-blocked.'});
+    if(tier==='green') reasons.push({tone:'info',text:'Always swatch before committing.'});
+    var headline = tier==='green'?'Good substitute':(tier==='yellow'?'Could work — swatch first':'Not a good match');
+    return {tier:tier, headline:headline, reasons:reasons, fix:fix, gaugeDeltaPct:gd, weightRel:wa};
+  }
+
+  // ---- yardage ----
+  function skeinsNeeded(total, yps){ return (total>0 && yps>0) ? Math.ceil(total/yps) : null; }
+  function totalYardsFromPattern(mode, v){
+    v=v||{};
+    var sf=(v.sizeFactor>0)?v.sizeFactor:1;
+    var waste=(v.wastePct>0)?v.wastePct/100:0;
+    var base=null;
+    if(mode==='skeins'){ base=(v.originalSkeins>0 && v.originalYps>0)?v.originalSkeins*v.originalYps:null; }
+    else { base=(v.totalYards>0)?v.totalYards:null; }
+    if(base==null) return null;
+    return base*sf*(1+waste);
+  }
+  function ydFromM(m){ return m*1.0936133; } function mFromYd(y){ return y/1.0936133; }
+  function gFromOz(o){ return o*28.349523; } function ozFromG(g){ return g/28.349523; }
+
+  function setBands(b){ if(b){ if(b.tight!=null)GAUGE_BANDS.tight=b.tight; if(b.workable!=null)GAUGE_BANDS.workable=b.workable; if(b.risky!=null)GAUGE_BANDS.risky=b.risky; } }
+
+  window.SubCalc={
+    WEIGHT_LABELS:WEIGHT_LABELS, GAUGE_BANDS:GAUGE_BANDS, setBands:setBands,
+    numOrNull:numOrNull, str:str, round1:round1, normLabel:normLabel,
+    fiberBucket:fiberBucket, classifyFiber:classifyFiber,
+    weightAdjacency:weightAdjacency, mapRavelryWeight:mapRavelryWeight, weightFromGauge:weightFromGauge,
+    gaugeDeltaPct:gaugeDeltaPct, gaugeCompatible:gaugeCompatible,
+    substitutionScore:substitutionScore,
+    skeinsNeeded:skeinsNeeded, totalYardsFromPattern:totalYardsFromPattern,
+    ydFromM:ydFromM, mFromYd:mFromYd, gFromOz:gFromOz, ozFromG:ozFromG
+  };
+})();
+
+
+/* ==========================================================================
+   PART 2 — STASH (read-only, defensive, EXTENDED to carry gauge + fiber)
+   ========================================================================== */
+(function(){
+  var S=window.SubCalc;
+  var STASH_KEY='crochetToolkit.stash.v1';
+  function readStashRaw(raw){
+    try{
+      if(!raw) return [];
+      var o=JSON.parse(raw);
+      if(!o || typeof o!=='object' || !Array.isArray(o.items)) return [];
+      return o.items.map(function(it){ it=it||{}; return {
+        brand:S.str(it.brand), line:S.str(it.line), colorName:S.str(it.colorName), colorHex:S.str(it.colorHex),
+        weightCategory:S.numOrNull(it.weightCategory), fiber:S.str(it.fiber),
+        gaugeStitches:S.numOrNull(it.gaugeStitches), gaugeRows:S.numOrNull(it.gaugeRows), hookSizeMm:S.numOrNull(it.hookSizeMm),
+        yardsPerSkein:S.numOrNull(it.yardsPerSkein), gramsPerSkein:S.numOrNull(it.gramsPerSkein), skeinsOnHand:S.numOrNull(it.skeinsOnHand)
+      }; });
+    }catch(_){ return []; }
+  }
+  function readStash(){ var raw=null; try{ raw=localStorage.getItem(STASH_KEY); }catch(_){ raw=null; } return readStashRaw(raw); }
+  window.SubStash={ readStash:readStash, readStashRaw:readStashRaw, KEY:STASH_KEY };
+})();
+
+
+/* ==========================================================================
+   PART 3 — RAVELRY (optional, pluggable; degrades to [] / no UI when absent)
+   ========================================================================== */
+(function(){
+  var S=window.SubCalc;
+  var SET_KEY='crochetToolkit.substitute.v1';
+  function loadSettings(){ try{ var o=JSON.parse(localStorage.getItem(SET_KEY)||'{}'); return (o&&typeof o==='object')?o:{}; }catch(_){ return {}; } }
+  function saveSettings(o){ try{ localStorage.setItem(SET_KEY, JSON.stringify(o||{})); }catch(_){} }
+  function proxyUrl(){ var u=loadSettings().proxyUrl||''; return /^https:\/\//.test(u)?u.replace(/\/+$/,''):''; }
+  function hasProxy(){ return !!proxyUrl(); }
+
+  function yarnFromRavelry(y){
+    y=y||{}; var w=y.yarn_weight||{};
+    var cyc=S.mapRavelryWeight(w.name);
+    var gauge=S.numOrNull(w.crochet_gauge);
+    if(gauge==null){ // fall back to the yarn's own min/max gauge (sts per gauge_divisor inches)
+      var mn=S.numOrNull(y.min_gauge), mx=S.numOrNull(y.max_gauge), div=S.numOrNull(y.gauge_divisor)||4;
+      var g=(mn!=null&&mx!=null)?(mn+mx)/2:(mn!=null?mn:mx);
+      if(g!=null && div>0) gauge=g*(4/div);
+    }
+    var fibers=(y.yarn_fibers||[]).map(function(f){ f=f||{}; var nm=(f.fiber_type&&f.fiber_type.name)||''; return (f.percentage?f.percentage+'% ':'')+nm; }).filter(function(s){return s.trim();}).join(' / ');
+    if(cyc==null) cyc=S.weightFromGauge(gauge);
+    return { label:[y.yarn_company_name,y.name].filter(Boolean).join(' '), weightCategory:cyc, gaugeStitches:gauge, gaugeRows:null, fiber:fibers, yardsPerSkein:S.numOrNull(y.yardage), gramsPerSkein:S.numOrNull(y.grams), _ravelryWeightName:w.name||null };
+  }
+  function fetchJson(url){
+    var ctrl = (typeof AbortController!=='undefined') ? new AbortController() : null;
+    var to = ctrl ? setTimeout(function(){ try{ctrl.abort();}catch(_){} }, 8000) : null;
+    return fetch(url, ctrl?{signal:ctrl.signal}:{}).then(function(r){ if(to)clearTimeout(to); if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); });
+  }
+  function searchYarns(query){
+    var base=proxyUrl(); if(!base||!query) return Promise.resolve([]);
+    return fetchJson(base+'/yarns/search.json?query='+encodeURIComponent(query)+'&page_size=12')
+      .then(function(d){ return (d&&d.yarns?d.yarns:[]); }).catch(function(){ return []; });
+  }
+  function getYarn(id){
+    var base=proxyUrl(); if(!base||!/^\d+$/.test(String(id))) return Promise.resolve(null);
+    return fetchJson(base+'/yarns/'+id+'.json').then(function(d){ return (d&&d.yarn)?d.yarn:null; }).catch(function(){ return null; });
+  }
+  function testConnection(){
+    var base=proxyUrl(); if(!base) return Promise.resolve({ok:false,msg:'No proxy URL set.'});
+    return fetchJson(base+'/yarns/search.json?query=wool&page_size=1')
+      .then(function(d){ return {ok:!!(d&&d.yarns), msg:(d&&d.yarns)?'Connected — Ravelry look-up is on.':'Reached the proxy, but no yarns came back.'}; })
+      .catch(function(e){ return {ok:false,msg:'Could not reach the proxy ('+(e&&e.message||'error')+').'}; });
+  }
+  window.SubRav={ loadSettings:loadSettings, saveSettings:saveSettings, proxyUrl:proxyUrl, hasProxy:hasProxy,
+    yarnFromRavelry:yarnFromRavelry, searchYarns:searchYarns, getYarn:getYarn, testConnection:testConnection };
+})();
+
+
+/* ==========================================================================
+   PART 4 — UI
+   ========================================================================== */
+(function(){
+  var S=window.SubCalc, St=window.SubStash, Rv=window.SubRav;
+  var $=function(id){ return document.getElementById(id); };
+  function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+  function fmt(n){ return (Math.round(n*10)/10).toLocaleString(); }
+  function val(id){ var e=$(id); return e?e.value:''; }
+  function setVal(id,v){ var e=$(id); if(e) e.value=(v==null?'':v); }
+
+  var view='compare';
+  var lastStashCandidate=null; // {skeinsOnHand} when candidate came from stash
+
+  /* ---- dialogs / toast (iOS-safe) ---- */
+  var _dlg=null;
+  function showDialog(h){ var d=$('dialog'); d.querySelector('.dialog-card').innerHTML=h; d.classList.remove('hidden'); }
+  function hideDialog(){ $('dialog').classList.add('hidden'); $('dialog').querySelector('.dialog-card').innerHTML=''; }
+  function confirmDialog(msg,opts){ opts=opts||{}; return new Promise(function(res){ showDialog('<div class="dialog-msg">'+esc(msg)+'</div><div class="dialog-actions"><button class="btn ghost" data-dlg="cancel">'+esc(opts.cancelText||'Cancel')+'</button><button class="btn '+(opts.danger?'':'primary')+'" data-dlg="ok">'+esc(opts.okText||'OK')+'</button></div>'); _dlg=function(v){ hideDialog(); res(v==='ok'); }; }); }
+  $('dialog').addEventListener('click', function(e){ var b=e.target.closest('[data-dlg]'); if(b){ if(_dlg){ var r=_dlg; _dlg=null; r(b.getAttribute('data-dlg')); } return; } if(e.target===$('dialog')&&_dlg){ var r2=_dlg;_dlg=null;r2('cancel'); } });
+  function openModal(title, body){ $('modal-inner').innerHTML='<div class="modal-head"><h2>'+esc(title)+'</h2><button class="btn ghost small" data-action="closemodal">✕</button></div><div class="modal-body">'+body+'</div>'; $('modal').classList.remove('hidden'); }
+  function closeModal(){ $('modal').classList.add('hidden'); $('modal-inner').innerHTML=''; }
+  $('modal').addEventListener('click', function(e){ if(e.target===$('modal')) closeModal(); });
+  function toast(m){ var t=$('toast'); t.textContent=m; t.classList.remove('hidden'); clearTimeout(toast._t); toast._t=setTimeout(function(){t.classList.add('hidden');},2600); }
+
+  /* ---- yarn input fields (shared markup for target 't' and candidate 'c') ---- */
+  function fieldsHTML(p){
+    var wopts=['<option value="">Unknown</option>'].concat([0,1,2,3,4,5,6,7].map(function(w){ return '<option value="'+w+'">'+w+' · '+S.WEIGHT_LABELS[w]+'</option>'; })).join('');
+    return '<div class="field"><label>Yarn name (optional)</label><input type="text" id="'+p+'-label" placeholder="brand + name"></div>'+
+      '<div class="two"><div class="field"><label>Weight</label><select id="'+p+'-weight">'+wopts+'</select></div>'+
+      '<div class="field"><label>Gauge — sts / 4in</label><input type="number" id="'+p+'-gauge" min="0" step="any" placeholder="e.g. 16"></div></div>'+
+      '<div class="two"><div class="field"><label>Rows / 4in (optional)</label><input type="number" id="'+p+'-rows" min="0" step="any"></div>'+
+      '<div class="field"><label>Fiber</label><input type="text" id="'+p+'-fiber" placeholder="e.g. 100% wool"></div></div>'+
+      '<div class="two"><div class="field"><label>Yards / skein</label><input type="number" id="'+p+'-yps" min="0" step="any"></div>'+
+      '<div class="field"><label>Grams / skein</label><input type="number" id="'+p+'-gps" min="0" step="any"></div></div>';
+  }
+  function readYarn(p){ return {
+    label:val(p+'-label'),
+    weightCategory:(val(p+'-weight')===''?null:parseInt(val(p+'-weight'),10)),
+    gaugeStitches:S.numOrNull(val(p+'-gauge')),
+    gaugeRows:S.numOrNull(val(p+'-rows')),
+    fiber:val(p+'-fiber'),
+    yardsPerSkein:S.numOrNull(val(p+'-yps')),
+    gramsPerSkein:S.numOrNull(val(p+'-gps'))
+  }; }
+  function fillYarn(p, y){ y=y||{}; setVal(p+'-label',y.label); setVal(p+'-weight',y.weightCategory==null?'':y.weightCategory); setVal(p+'-gauge',y.gaugeStitches); setVal(p+'-rows',y.gaugeRows); setVal(p+'-fiber',y.fiber); setVal(p+'-yps',y.yardsPerSkein); setVal(p+'-gps',y.gramsPerSkein); }
+
+  /* ---- how-much ---- */
+  function readHowMuch(){
+    var mode=(document.querySelector('input[name=ymode]:checked')||{}).value||'direct';
+    var unit=val('y-unit')||'yd';
+    var total=S.numOrNull(val('y-total')); if(total!=null && unit==='m') total=S.ydFromM(total);
+    // "Yards in each of those" is always yards (its own label) — the yd/m selector only governs the
+    // direct total above, so never convert oyps (it would inflate the skeins count when meters is left set).
+    var oyps=S.numOrNull(val('y-oyps'));
+    return { mode:mode, totalYards:total, originalSkeins:S.numOrNull(val('y-oskeins')), originalYps:oyps,
+      sizeFactor:S.numOrNull(val('y-sizefactor')), wastePct:S.numOrNull(val('y-waste')) };
+  }
+
+  /* ---- the live verdict ---- */
+  function renderVerdict(){
+    var t=readYarn('t'), c=readYarn('c');
+    var anyT=t.label||t.weightCategory!=null||t.gaugeStitches!=null||t.fiber||t.yardsPerSkein!=null;
+    var anyC=c.label||c.weightCategory!=null||c.gaugeStitches!=null||c.fiber||c.yardsPerSkein!=null;
+    var bar=$('verdict-bar');
+    if(view!=='compare' || (!anyT && !anyC)){ bar.classList.add('hidden'); return; }
+    var v=S.substitutionScore(t,c);
+    var hm=readHowMuch();
+    var total=S.totalYardsFromPattern(hm.mode, hm);
+    var skeins=S.skeinsNeeded(total, c.yardsPerSkein);
+    var skeinsLine;
+    if(total==null){ skeinsLine='<span class="muted">Add the pattern\'s amount in step 3 for a skein count.</span>'; }
+    else if(c.yardsPerSkein==null || !(c.yardsPerSkein>0)){ skeinsLine='Needs about <b>'+fmt(total)+' yds</b>. Enter the new yarn\'s yards/skein to get skeins.'; }
+    else {
+      var leftover=skeins*c.yardsPerSkein-total;
+      skeinsLine='Buy <b>'+skeins+' skein'+(skeins===1?'':'s')+'</b> (~'+fmt(total)+' yds; ~'+fmt(leftover)+' left over). Consider '+(skeins+1)+' for dye-lot safety.';
+      if(lastStashCandidate && lastStashCandidate.skeinsOnHand!=null){ var own=lastStashCandidate.skeinsOnHand; skeinsLine+=' <span class="'+(own>=skeins?'':'')+'">You own '+own+' — '+(own>=skeins?'enough ✓':'need '+(skeins-own)+' more')+'.</span>'; }
+    }
+    var reasons=v.reasons.map(function(r){ return '<li class="'+r.tone+'"><span class="dot"></span><span>'+esc(r.text)+'</span></li>'; }).join('');
+    bar.classList.remove('hidden');
+    bar.innerHTML='<div><span class="vchip '+v.tier+'">'+(v.tier==='green'?'GOOD':v.tier==='yellow'?'MAYBE':'NO')+'</span><span class="vhead">'+esc(v.headline)+'</span></div>'+
+      '<ul class="reasons">'+reasons+'</ul>'+
+      (v.fix?'<div class="fix">→ '+esc(v.fix)+'</div>':'')+
+      '<div class="vskeins">'+skeinsLine+'</div>';
+  }
+
+  /* ---- views ---- */
+  function switchView(v){ view=v; ['compare','stash','settings'].forEach(function(k){ $('view-'+k).classList.toggle('hidden',k!==v); }); document.querySelectorAll('nav.seg button').forEach(function(b){ b.classList.toggle('active', b.getAttribute('data-view')===v); }); if(v==='stash') renderStashTargetSummary(); if(v==='settings') renderSettings(); renderVerdict(); }
+
+  /* ---- stash picker (load a yarn into target/candidate) ---- */
+  function openStashPicker(side){
+    var items=St.readStash();
+    if(!items.length){ openModal('From my stash','<p class="muted" style="margin-top:0">No saved yarn found. Add yarn in the Stash Manager first (same website).</p><div class="row"><span class="spacer"></span><button class="btn ghost" data-action="closemodal">Close</button></div>'); return; }
+    var rows=items.map(function(it,i){ var hex=/^#[0-9a-f]{6}$/i.test(it.colorHex)?it.colorHex:'#ddd';
+      return '<div class="resitem" data-pick="'+i+'" data-side="'+side+'"><div class="top"><span class="swatch" style="background:'+hex+'"></span><span style="flex:1"><b>'+esc([it.brand,it.line,it.colorName].filter(Boolean).join(' · ')||'(yarn)')+'</b></span></div>'+
+        '<div class="hint">'+(it.weightCategory!=null?(it.weightCategory+' '+S.WEIGHT_LABELS[it.weightCategory]):'weight ?')+' · '+(it.gaugeStitches!=null?it.gaugeStitches+' sts/4in':'gauge ?')+' · '+esc(it.fiber||'fiber ?')+' · '+(it.yardsPerSkein!=null?it.yardsPerSkein+' yds/skein':'yds ?')+'</div></div>'; }).join('');
+    window._stashPick=items;
+    openModal('Pick a yarn '+(side==='t'?'(the pattern\'s)':'(to use)'), rows+'<div class="row"><span class="spacer"></span><button class="btn ghost" data-action="closemodal">Close</button></div>');
+  }
+  function pickStashInto(side, idx){
+    var it=(window._stashPick||[])[idx]; if(!it) return;
+    var y={ label:[it.brand,it.line,it.colorName].filter(Boolean).join(' '), weightCategory:it.weightCategory, gaugeStitches:it.gaugeStitches, gaugeRows:it.gaugeRows, fiber:it.fiber, yardsPerSkein:it.yardsPerSkein, gramsPerSkein:it.gramsPerSkein };
+    fillYarn(side, y);
+    if(side==='c') lastStashCandidate={skeinsOnHand:it.skeinsOnHand}; else if(side==='t') {}
+    closeModal(); renderVerdict(); toast('Loaded.');
+  }
+
+  /* ---- Ravelry search ---- */
+  function openRavelrySearch(side){
+    openModal('Look up on Ravelry', '<div class="field"><label>Search yarn name</label><input type="text" id="rav-q" placeholder="e.g. Wool-Ease"></div><div class="row"><button class="btn primary" data-action="rav-go" data-side="'+esc(side)+'">Search</button></div><div id="rav-results" style="margin-top:10px"></div>');
+    setTimeout(function(){ var e=$('rav-q'); if(e) e.focus(); },50);
+  }
+  function runRavelrySearch(side){
+    var q=val('rav-q'); var out=$('rav-results'); if(!q){ toast('Type a yarn name.'); return; }
+    out.innerHTML='<div class="muted">Searching…</div>';
+    Rv.searchYarns(q).then(function(list){
+      if(!list.length){ out.innerHTML='<div class="muted">No matches (or the proxy isn\'t reachable).</div>'; return; }
+      window._ravList=list;
+      out.innerHTML=list.map(function(y,i){ var w=(y.yarn_weight&&y.yarn_weight.name)||'weight ?';
+        return '<div class="resitem" data-rav="'+i+'" data-side="'+esc(side)+'"><b>'+esc([y.yarn_company_name,y.name].filter(Boolean).join(' '))+'</b><div class="hint">'+esc(w)+(y.yardage?' · '+y.yardage+' yds/skein':'')+'</div></div>'; }).join('');
+    });
+  }
+  function pickRavelryInto(side, idx){
+    var y=(window._ravList||[])[idx]; if(!y) return;
+    // search results are partial; fetch full details if we have an id
+    var done=function(full){ var yy=Rv.yarnFromRavelry(full||y); fillYarn(side, yy); if(side==='c') lastStashCandidate=null; closeModal(); renderVerdict(); toast(yy._ravelryWeightName&&yy.weightCategory==null?'Loaded — couldn\'t map "'+yy._ravelryWeightName+'" to a weight, please pick it.':'Loaded from Ravelry.'); };
+    if(y.id){ Rv.getYarn(y.id).then(function(full){ done(full); }); } else done(y);
+  }
+
+  /* ---- find substitutes in stash ---- */
+  function renderStashTargetSummary(){
+    var t=readYarn('t');
+    var el=$('stash-target-summary');
+    if(!(t.gaugeStitches!=null || t.weightCategory!=null)) el.innerHTML='Set the <b>target</b> yarn on the Compare tab first (at least its gauge or weight).';
+    else el.innerHTML='Target: '+esc(t.label||'(unnamed)')+' — '+(t.weightCategory!=null?t.weightCategory+' '+S.WEIGHT_LABELS[t.weightCategory]:'weight ?')+', '+(t.gaugeStitches!=null?t.gaugeStitches+' sts/4in':'gauge ?')+', '+esc(t.fiber||'fiber ?')+'.';
+  }
+  function rankStash(){
+    var t=readYarn('t');
+    var items=St.readStash();
+    var out=$('stash-results');
+    if(!items.length){ out.innerHTML='<div class="card"><div class="muted">No saved yarn found. Add yarn in the Stash Manager (same website), then come back.</div></div>'; return; }
+    var rank={green:0,yellow:1,red:2};
+    var scored=items.map(function(it){ var cand={ label:[it.brand,it.line,it.colorName].filter(Boolean).join(' '), weightCategory:it.weightCategory, gaugeStitches:it.gaugeStitches, gaugeRows:it.gaugeRows, fiber:it.fiber, yardsPerSkein:it.yardsPerSkein, gramsPerSkein:it.gramsPerSkein, skeinsOnHand:it.skeinsOnHand, colorHex:it.colorHex };
+      return { cand:cand, v:S.substitutionScore(t,cand), gd:S.gaugeDeltaPct(t.gaugeStitches,it.gaugeStitches) }; });
+    scored.sort(function(a,b){ if(rank[a.v.tier]!==rank[b.v.tier]) return rank[a.v.tier]-rank[b.v.tier]; var ga=a.gd==null?9999:a.gd, gb=b.gd==null?9999:b.gd; if(ga!==gb) return ga-gb; return (b.cand.skeinsOnHand||0)-(a.cand.skeinsOnHand||0); });
+    window._rankList=scored;
+    out.innerHTML='<div class="card">'+scored.map(function(s,i){ var hex=/^#[0-9a-f]{6}$/i.test(s.cand.colorHex)?s.cand.colorHex:'#ddd';
+      var top2=s.v.reasons.slice(0,2).map(function(r){return esc(r.text);}).join(' ');
+      return '<div class="resitem" data-rankpick="'+i+'"><div class="top"><span class="swatch" style="background:'+hex+'"></span><span style="flex:1"><b>'+esc(s.cand.label||'(yarn)')+'</b></span><span class="badge '+s.v.tier+'">'+(s.v.tier==='green'?'good':s.v.tier==='yellow'?'maybe':'no')+'</span></div>'+
+        '<div class="hint">'+(s.cand.weightCategory!=null?s.cand.weightCategory+' '+S.WEIGHT_LABELS[s.cand.weightCategory]:'weight ?')+' · '+(s.cand.gaugeStitches!=null?s.cand.gaugeStitches+' sts/4in':'gauge ?')+' · '+(s.cand.skeinsOnHand!=null?s.cand.skeinsOnHand+' on hand':'')+'</div>'+
+        '<div class="hint">'+top2+'</div></div>'; }).join('')+'</div>';
+  }
+  function useRankPick(idx){ var s=(window._rankList||[])[idx]; if(!s) return; fillYarn('c', s.cand); lastStashCandidate={skeinsOnHand:s.cand.skeinsOnHand}; switchView('compare'); renderVerdict(); toast('Loaded as your candidate.'); }
+
+  /* ---- example + clear ---- */
+  function loadExample(){
+    fillYarn('t', {label:'Pattern: worsted wool', weightCategory:4, gaugeStitches:16, gaugeRows:20, fiber:'100% wool', yardsPerSkein:210, gramsPerSkein:100});
+    fillYarn('c', {label:'My DK acrylic', weightCategory:3, gaugeStitches:17, gaugeRows:24, fiber:'100% acrylic', yardsPerSkein:301, gramsPerSkein:100});
+    lastStashCandidate=null;
+    $('ym-direct').checked=true; toggleYmode(); setVal('y-total','1200'); setVal('y-unit','yd'); setVal('y-oskeins',''); setVal('y-oyps',''); setVal('y-sizefactor',''); setVal('y-waste','');
+    renderVerdict(); toast('Example loaded.');
+  }
+  function clearAll(){ ['t','c'].forEach(function(p){ fillYarn(p,{}); }); setVal('y-total','');setVal('y-oskeins','');setVal('y-oyps','');setVal('y-sizefactor','');setVal('y-waste',''); lastStashCandidate=null; renderVerdict(); }
+  function toggleYmode(){ var m=(document.querySelector('input[name=ymode]:checked')||{}).value||'direct'; $('ym-direct-fields').style.display=(m==='direct')?'':'none'; $('ym-skeins-fields').style.display=(m==='skeins')?'':'none'; }
+
+  /* ---- share verdict (text; iOS-safe ladder) ---- */
+  function shareVerdict(){
+    var t=readYarn('t'), c=readYarn('c'); var v=S.substitutionScore(t,c);
+    var hm=readHowMuch(); var total=S.totalYardsFromPattern(hm.mode,hm); var sk=S.skeinsNeeded(total,c.yardsPerSkein);
+    var lines=['Yarn substitution — '+v.headline.toUpperCase(), (t.label||'target')+'  →  '+(c.label||'candidate'), ''];
+    v.reasons.forEach(function(r){ lines.push('• '+r.text); });
+    if(v.fix) lines.push('→ '+v.fix);
+    if(sk!=null) lines.push('', 'Buy '+sk+' skeins (~'+fmt(total)+' yds).');
+    var text=lines.join('\n');
+    if(navigator.share){ navigator.share({title:'Yarn substitution', text:text}).catch(function(){ copyText(text); }); }
+    else copyText(text);
+  }
+  function copyText(text){ if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(text).then(function(){toast('Copied.');}).catch(function(){ showText(text); }); } else showText(text); }
+  function showText(text){ openModal('Copy this', '<textarea readonly style="width:100%;min-height:160px;font-size:12px" id="share-ta">'+esc(text)+'</textarea><div class="row" style="margin-top:8px"><span class="spacer"></span><button class="btn ghost" data-action="closemodal">Done</button></div>'); setTimeout(function(){ var e=$('share-ta'); if(e){e.focus();e.select();} },50); }
+
+  /* ---- settings ---- */
+  function renderSettings(){
+    var s=Rv.loadSettings(); setVal('set-proxy', s.proxyUrl||'');
+    setVal('set-tight', S.GAUGE_BANDS.tight); setVal('set-workable', S.GAUGE_BANDS.workable); setVal('set-risky', S.GAUGE_BANDS.risky);
+    renderInstall(); updateRavelryButtons();
+  }
+  function saveProxy(){ var u=val('set-proxy').trim(); if(u && !/^https:\/\//.test(u)){ toast('Proxy URL must start with https://'); return; } var s=Rv.loadSettings(); s.proxyUrl=u; Rv.saveSettings(s); updateRavelryButtons(); toast(u?'Saved.':'Cleared.'); $('proxy-status').textContent=u?'Saved. Tap "Test connection" to check it.':''; }
+  function testProxy(){ var st=$('proxy-status'); st.textContent='Testing…'; Rv.testConnection().then(function(r){ st.textContent=r.msg; }); }
+  function saveBands(){ var b={tight:S.numOrNull(val('set-tight')), workable:S.numOrNull(val('set-workable')), risky:S.numOrNull(val('set-risky'))}; if(b.tight==null||b.workable==null||b.risky==null){ toast('Enter all three numbers.'); return; } S.setBands(b); var s=Rv.loadSettings(); s.bands=b; Rv.saveSettings(s); toast('Thresholds saved.'); renderVerdict(); }
+  function resetBands(){ S.setBands({tight:5,workable:10,risky:15}); var s=Rv.loadSettings(); delete s.bands; Rv.saveSettings(s); renderSettings(); renderVerdict(); toast('Reset to defaults.'); }
+  function updateRavelryButtons(){ var on=Rv.hasProxy(); document.querySelectorAll('.ravelry-btn').forEach(function(b){ b.style.display=on?'':'none'; }); }
+
+  /* ---- self-test ---- */
+  function runSelfTest(){
+    var out=$('selftest-out'); out.innerHTML='<div class="muted" style="margin-top:8px">Running…</div>';
+    var L=[]; function add(n,p,d){ L.push({n:n,p:!!p,d:d||''}); }
+    add('skeinsNeeded rounds up', S.skeinsNeeded(1000,200)===5 && S.skeinsNeeded(1001,200)===6);
+    add('skeinsNeeded null on bad input', S.skeinsNeeded(0,200)===null && S.skeinsNeeded(100,0)===null);
+    add('weightAdjacency cases', S.weightAdjacency(4,4)==='exact' && S.weightAdjacency(3,4)==='adjacent' && S.weightAdjacency(2,5)==='far' && S.weightAdjacency(null,4)==='unknown');
+    add('gaugeDeltaPct + divide-by-zero guard', S.gaugeDeltaPct(16,16)===0 && Math.abs(S.gaugeDeltaPct(16,17)-6.25)<1e-9 && S.gaugeDeltaPct(0,16)===null);
+    add('matching gauge+weight+fiber → green', S.substitutionScore({weightCategory:4,gaugeStitches:16,fiber:'wool'},{weightCategory:4,gaugeStitches:16,fiber:'wool'}).tier==='green');
+    add('big gauge gap → red', S.substitutionScore({weightCategory:4,gaugeStitches:16,fiber:'wool'},{weightCategory:6,gaugeStitches:9,fiber:'wool'}).tier==='red');
+    add('missing gauge can never be green', S.substitutionScore({weightCategory:4,fiber:'wool'},{weightCategory:4,fiber:'wool'}).tier!=='green');
+    add('far weight but same gauge → yellow (not green)', S.substitutionScore({weightCategory:3,gaugeStitches:16,fiber:'wool'},{weightCategory:6,gaugeStitches:16,fiber:'wool'}).tier==='yellow');
+    add('fiber swap demotes a green to yellow', S.substitutionScore({weightCategory:4,gaugeStitches:16,fiber:'wool'},{weightCategory:4,gaugeStitches:16,fiber:'acrylic'}).tier==='yellow');
+    add('unit conversions round-trip', Math.abs(S.mFromYd(S.ydFromM(50))-50)<1e-6 && Math.abs(S.ozFromG(S.gFromOz(3.5))-3.5)<1e-6);
+    add('mapRavelryWeight incl. unknown→null', S.mapRavelryWeight('Worsted')===4 && S.mapRavelryWeight('DK')===3 && S.mapRavelryWeight('Fingering')===1 && S.mapRavelryWeight('Squishy Cloud')===null);
+    add('classifyFiber buckets', S.classifyFiber('100% acrylic')==='acrylic' && S.classifyFiber('80% acrylic / 20% wool')==='blend' && S.classifyFiber('')==='other');
+    var g1=St.readStashRaw('{bad json'), g2=St.readStashRaw(null), g3=St.readStashRaw('{"items":"nope"}');
+    var g4=St.readStashRaw(JSON.stringify({items:[{brand:'X',weightCategory:4,gaugeStitches:16,fiber:'wool',yardsPerSkein:210,skeinsOnHand:3}]}));
+    add('stash read never crashes + parses gauge/fiber', Array.isArray(g1)&&g1.length===0&&Array.isArray(g2)&&Array.isArray(g3)&&g3.length===0 && g4.length===1 && g4[0].gaugeStitches===16 && g4[0].fiber==='wool');
+    var allPass=L.every(function(x){return x.p;});
+    out.innerHTML=L.map(function(x){ return '<div class="testline">'+(x.p?'<span class="ok">✓ PASS</span>':'<span class="no">✗ FAIL</span>')+' '+esc(x.n)+(x.d?' — '+esc(x.d):'')+'</div>'; }).join('')+'<div style="margin-top:8px;font-weight:800;color:'+(allPass?'var(--good)':'var(--bad)')+'">'+(allPass?'All checks passed ✓':'Some checks FAILED ✗')+'</div>';
+  }
+
+  /* ---- install hint ---- */
+  function isStandalone(){ try{ return (window.navigator.standalone===true)||(window.matchMedia&&window.matchMedia('(display-mode: standalone)').matches); }catch(_){ return false; } }
+  function renderInstall(){ var sa=isStandalone(), iOS=/iPad|iPhone|iPod/.test(navigator.userAgent||''); $('install-body').innerHTML = sa?'<div class="hint">Running as an installed app — works offline.</div>':'<ol class="steps"><li>Open in <b>Safari</b>.</li><li>Tap <b>Share</b> → <b>Add to Home Screen</b> → <b>Add</b>.</li><li>Open it from the new icon — it runs offline.</li></ol>'+'<div class="hint">'+(iOS?'':'On other phones use your browser menu → "Add to Home Screen / Install."')+'</div>'; }
+  function maybeInstallBanner(){ if(isStandalone()) return; var iOS=/iPad|iPhone|iPod/.test(navigator.userAgent||''); $('banner-area').innerHTML='<div class="banner warn">📲 Add to your Home Screen to use this like an app, offline. '+(iOS?'Tap <b>Share</b> → <b>Add to Home Screen</b>.':'See Settings → "Use it as an app."')+'</div>'; }
+
+  /* ---- events ---- */
+  document.addEventListener('click', function(e){
+    var el=e.target.closest('[data-action]'); if(el){ var a=el.getAttribute('data-action');
+      if(a==='closemodal'){ closeModal(); return; }
+      if(a==='pick-stash'){ openStashPicker(el.getAttribute('data-side')); return; }
+      if(a==='pick-ravelry'){ openRavelrySearch(el.getAttribute('data-side')); return; }
+      if(a==='rav-go'){ runRavelrySearch(el.getAttribute('data-side')); return; }
+      if(a==='goto-stash'){ switchView('stash'); return; }
+      if(a==='rank-stash'){ rankStash(); return; }
+      if(a==='example'){ loadExample(); return; }
+      if(a==='clearall'){ clearAll(); return; }
+      if(a==='share'){ shareVerdict(); return; }
+      if(a==='save-proxy'){ saveProxy(); return; }
+      if(a==='test-proxy'){ testProxy(); return; }
+      if(a==='save-bands'){ saveBands(); return; }
+      if(a==='reset-bands'){ resetBands(); return; }
+      if(a==='selftest'){ runSelfTest(); return; }
+    }
+    var pk=e.target.closest('[data-pick]'); if(pk){ pickStashInto(pk.getAttribute('data-side'), parseInt(pk.getAttribute('data-pick'),10)); return; }
+    var rv=e.target.closest('[data-rav]'); if(rv){ pickRavelryInto(rv.getAttribute('data-side'), parseInt(rv.getAttribute('data-rav'),10)); return; }
+    var rp=e.target.closest('[data-rankpick]'); if(rp){ useRankPick(parseInt(rp.getAttribute('data-rankpick'),10)); return; }
+    var nv=e.target.closest('nav.seg button'); if(nv){ switchView(nv.getAttribute('data-view')); return; }
+  });
+  document.addEventListener('input', function(e){ if(view==='compare' && e.target.closest('#view-compare')) renderVerdict(); });
+  document.addEventListener('change', function(e){ if(e.target.name==='ymode'){ toggleYmode(); renderVerdict(); } else if(view==='compare' && e.target.closest('#view-compare')) renderVerdict(); });
+  document.addEventListener('keydown', function(e){ if(e.key==='Escape'){ if(!$('modal').classList.contains('hidden')) closeModal(); else if(!$('dialog').classList.contains('hidden')&&_dlg){ var r=_dlg;_dlg=null;r('cancel'); } } });
+  window.addEventListener('storage', function(e){ if(e.key===St.KEY && view==='stash') renderStashTargetSummary(); });
+
+  /* ---- boot ---- */
+  $('t-fields').innerHTML=fieldsHTML('t');
+  $('c-fields').innerHTML=fieldsHTML('c');
+  toggleYmode();
+  // apply saved settings (proxy + bands)
+  (function(){ var s=Rv.loadSettings(); if(s.bands) S.setBands(s.bands); })();
+  updateRavelryButtons();
+  renderInstall();
+  if('serviceWorker' in navigator && location.protocol.indexOf('http')===0){ try{ navigator.serviceWorker.register('sw.js').catch(function(){}); }catch(_){} }
+  try{ if(navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(function(){}); }catch(_){}
+  maybeInstallBanner();
+  switchView('compare');
+})();
+</script>
+</body>
+</html>
