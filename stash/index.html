@@ -870,7 +870,7 @@
         '</div>'+
         '<div class="field"><label>Photo (optional)</label>'+
           '<div class="photo-preview"><img id="f-photo-img" data-photo-ref="'+esc(v.photoDataUrl||'')+'" alt="" style="'+((it&&it.photoDataUrl)?'':'display:none')+'">'+
-          '<div><input type="file" id="f-photo" accept="image/*" capture="environment"><div class="hint">Auto-shrunk to a small JPEG before saving.</div>'+
+          '<div><input type="file" id="f-photo" accept="image/*"><div class="hint">Pick from your camera roll or take a photo — auto-shrunk to a small JPEG before saving.</div>'+
           ((it&&it.photoDataUrl)?'<button type="button" class="btn small ghost" data-action="rmphoto" style="margin-top:6px">Remove photo</button>':'')+'</div></div>'+
         '</div>'+
         '<div class="field"><label>Notes</label><textarea id="f-notes" placeholder="anything you want to remember">'+esc(v.notes)+'</textarea></div>'+

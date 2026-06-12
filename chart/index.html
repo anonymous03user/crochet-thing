@@ -143,11 +143,14 @@
     <h2>1 · Pick a photo</h2>
     <div class="hint">Choose or take a photo. It stays on your device — nothing is uploaded.</div>
     <div class="row">
-      <button class="btn primary" data-action="pick">📷 Choose / take photo</button>
+      <button class="btn primary" data-action="pick">🖼 Choose from camera roll</button>
+      <button class="btn" data-action="snap">📷 Take a photo</button>
       <button class="btn" data-action="sample">Load sample image</button>
       <button class="btn ghost" data-action="selftest">Run self-test</button>
     </div>
-    <input type="file" id="file" accept="image/*" capture="environment" style="display:none">
+    <!-- no "capture" attribute by default: on iPhone, capture forces the camera open and
+         hides the camera-roll option. "Take a photo" adds it back on just that tap. -->
+    <input type="file" id="file" accept="image/*" style="display:none">
     <div id="selftest-out"></div>
   </div>
 
@@ -519,7 +522,13 @@ function updateSizeHint(){
 function clampInt(v,min,max,def){ var n=parseInt(v,10); if(!isFinite(n)) n=def; if(n<min)n=min; if(n>max)n=max; return n; }
 
 /* ----- pick / load image ----- */
-function onPick(){ var f=$('file'); f.value=''; f.onchange=function(){ var file=f.files&&f.files[0]; if(!file) return; loadAndShowSettings(loadImageToImageData(file)); }; f.click(); }
+function onPick(withCamera){
+  var f=$('file'); f.value='';
+  // "capture" present = jump straight to the camera; absent = the normal picker (camera roll etc.)
+  if(withCamera) f.setAttribute('capture','environment'); else f.removeAttribute('capture');
+  f.onchange=function(){ var file=f.files&&f.files[0]; if(!file) return; loadAndShowSettings(loadImageToImageData(file)); };
+  f.click();
+}
 function loadAndShowSettings(promise){
   toast('Reading photo…');
   promise.then(function(data){ ST.imageData=data; show('settings-card',true); refreshStashNote(); updateSizeHint(); toast('Photo loaded — choose your settings.'); $('settings-card').scrollIntoView({behavior:'smooth',block:'start'}); })
@@ -812,7 +821,8 @@ document.addEventListener('click', function(e){
   var el=e.target.closest('[data-action]'); if(!el) return;
   var a=el.getAttribute('data-action');
   switch(a){
-    case 'pick': onPick(); break;
+    case 'pick': onPick(false); break;
+    case 'snap': onPick(true); break;
     case 'sample': loadAndShowSettings(Promise.resolve(makeSampleImageData())); break;
     case 'selftest': runSelfTest(); break;
     case 'w-': stepField('f-width',-5,10,120); break;
