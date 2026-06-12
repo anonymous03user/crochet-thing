@@ -23,8 +23,10 @@
 
   - It can READ the yarn you saved in the Stash Manager (same website) to suggest substitutes
     from yarn you already own. It only reads the stash; it never changes it.
-  - Optional: look up a yarn by name on Ravelry (needs a tiny proxy you set up once — see
-    proxy/README.md). The app is fully usable without it (type details in, or use your stash).
+  - Ravelry look-up is BUILT IN: yarn-by-name search goes through the toolkit's own tiny proxy
+    (pre-configured; it holds the credentials encrypted server-side and only allows read-only
+    yarn lookups). The app still works fully offline without it (type details in, or use your
+    stash) — and Settings lets you swap in your own proxy or turn look-up off.
 
   NOTE FOR THE CROCHETER: the builder doesn't crochet. The "will it work" thresholds (gauge %,
   weight rules, fiber tradeoffs) are flagged guesses you can edit in Settings — gauge is the real
@@ -208,9 +210,9 @@
       <div id="install-body"></div>
     </div>
     <div class="card">
-      <h2>Ravelry look-up <span class="muted small">(optional)</span></h2>
-      <div class="cap">Paste your Ravelry proxy URL to look up yarns by name. Don't have one? The app works fully without it — see <code>proxy/README.md</code>.</div>
-      <div class="field"><label>Proxy URL</label><input type="url" id="set-proxy" placeholder="https://…workers.dev"></div>
+      <h2>Ravelry look-up <span class="muted small">(already set up ✓)</span></h2>
+      <div class="cap">Looking up yarns by name on Ravelry is <b>built in — nothing to set up</b>. Only touch this if you want your own proxy (paste its URL) or to turn look-up off (type <code>off</code>).</div>
+      <div class="field"><label>Proxy URL (leave blank for built-in)</label><input type="url" id="set-proxy" placeholder="built-in proxy is used when blank"></div>
       <div class="row"><button class="btn" data-action="save-proxy">Save</button><button class="btn ghost" data-action="test-proxy">Test connection</button></div>
       <div id="proxy-status" class="hint"></div>
     </div>
@@ -412,7 +414,17 @@
   var SET_KEY='crochetToolkit.substitute.v1';
   function loadSettings(){ try{ var o=JSON.parse(localStorage.getItem(SET_KEY)||'{}'); return (o&&typeof o==='object')?o:{}; }catch(_){ return {}; } }
   function saveSettings(o){ try{ localStorage.setItem(SET_KEY, JSON.stringify(o||{})); }catch(_){} }
-  function proxyUrl(){ var u=loadSettings().proxyUrl||''; return /^https:\/\//.test(u)?u.replace(/\/+$/,''):''; }
+  // The toolkit's own proxy comes pre-configured so Ravelry look-up "just works" with zero
+  // setup. It holds NO secrets reachable from here (creds live encrypted inside the Worker);
+  // the URL only grants rate-limited, read-only yarn lookups. A pasted URL overrides it;
+  // typing "off" disables look-up entirely.
+  var DEFAULT_PROXY='https://crochet-ravelry-proxy.crochet-thing.workers.dev';
+  function proxyUrl(){
+    var u=String(loadSettings().proxyUrl||'').trim();
+    if(u.toLowerCase()==='off') return '';
+    if(/^https:\/\//.test(u)) return u.replace(/\/+$/,'');
+    return DEFAULT_PROXY;
+  }
   function hasProxy(){ return !!proxyUrl(); }
 
   function yarnFromRavelry(y){
@@ -426,7 +438,9 @@
     }
     var fibers=(y.yarn_fibers||[]).map(function(f){ f=f||{}; var nm=(f.fiber_type&&f.fiber_type.name)||''; return (f.percentage?f.percentage+'% ':'')+nm; }).filter(function(s){return s.trim();}).join(' / ');
     if(cyc==null) cyc=S.weightFromGauge(gauge);
-    return { label:[y.yarn_company_name,y.name].filter(Boolean).join(' '), weightCategory:cyc, gaugeStitches:gauge, gaugeRows:null, fiber:fibers, yardsPerSkein:S.numOrNull(y.yardage), gramsPerSkein:S.numOrNull(y.grams), _ravelryWeightName:w.name||null };
+    // company name is flat on search results but a nested object on the details endpoint
+    var company = y.yarn_company_name || (y.yarn_company && y.yarn_company.name) || '';
+    return { label:[company,y.name].filter(Boolean).join(' '), weightCategory:cyc, gaugeStitches:gauge, gaugeRows:null, fiber:fibers, yardsPerSkein:S.numOrNull(y.yardage), gramsPerSkein:S.numOrNull(y.grams), _ravelryWeightName:w.name||null };
   }
   function fetchJson(url){
     var ctrl = (typeof AbortController!=='undefined') ? new AbortController() : null;
@@ -443,7 +457,7 @@
     return fetchJson(base+'/yarns/'+id+'.json').then(function(d){ return (d&&d.yarn)?d.yarn:null; }).catch(function(){ return null; });
   }
   function testConnection(){
-    var base=proxyUrl(); if(!base) return Promise.resolve({ok:false,msg:'No proxy URL set.'});
+    var base=proxyUrl(); if(!base) return Promise.resolve({ok:false,msg:'Ravelry look-up is turned off.'});
     return fetchJson(base+'/yarns/search.json?query=wool&page_size=1')
       .then(function(d){ return {ok:!!(d&&d.yarns), msg:(d&&d.yarns)?'Connected — Ravelry look-up is on.':'Reached the proxy, but no yarns came back.'}; })
       .catch(function(e){ return {ok:false,msg:'Could not reach the proxy ('+(e&&e.message||'error')+').'}; });
@@ -639,7 +653,13 @@
     setVal('set-tight', S.GAUGE_BANDS.tight); setVal('set-workable', S.GAUGE_BANDS.workable); setVal('set-risky', S.GAUGE_BANDS.risky);
     renderInstall(); updateRavelryButtons();
   }
-  function saveProxy(){ var u=val('set-proxy').trim(); if(u && !/^https:\/\//.test(u)){ toast('Proxy URL must start with https://'); return; } var s=Rv.loadSettings(); s.proxyUrl=u; Rv.saveSettings(s); updateRavelryButtons(); toast(u?'Saved.':'Cleared.'); $('proxy-status').textContent=u?'Saved. Tap "Test connection" to check it.':''; }
+  function saveProxy(){
+    var u=val('set-proxy').trim();
+    if(u && u.toLowerCase()!=='off' && !/^https:\/\//.test(u)){ toast('Paste an https:// URL, leave blank for built-in, or type "off".'); return; }
+    var s=Rv.loadSettings(); s.proxyUrl=u; Rv.saveSettings(s); updateRavelryButtons();
+    toast(u.toLowerCase()==='off'?'Ravelry look-up turned off.':(u?'Saved — using your proxy.':'Using the built-in look-up.'));
+    $('proxy-status').textContent = u.toLowerCase()==='off' ? 'Ravelry look-up is off.' : 'Tap "Test connection" to check it.';
+  }
   function testProxy(){ var st=$('proxy-status'); st.textContent='Testing…'; Rv.testConnection().then(function(r){ st.textContent=r.msg; }); }
   function saveBands(){ var b={tight:S.numOrNull(val('set-tight')), workable:S.numOrNull(val('set-workable')), risky:S.numOrNull(val('set-risky'))}; if(b.tight==null||b.workable==null||b.risky==null){ toast('Enter all three numbers.'); return; } S.setBands(b); var s=Rv.loadSettings(); s.bands=b; Rv.saveSettings(s); toast('Thresholds saved.'); renderVerdict(); }
   function resetBands(){ S.setBands({tight:5,workable:10,risky:15}); var s=Rv.loadSettings(); delete s.bands; Rv.saveSettings(s); renderSettings(); renderVerdict(); toast('Reset to defaults.'); }
