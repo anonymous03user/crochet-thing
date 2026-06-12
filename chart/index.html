@@ -3,17 +3,17 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Crochet Toolkit — Chart Generator</title>
+<title>Chart Generator · Cricket’s Crochet Toolkit</title>
 <meta name="theme-color" content="#2f6f6f">
 <meta name="color-scheme" content="light">
 <meta name="format-detection" content="telephone=no">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Chart">
-<link rel="apple-touch-icon" href="icons/icon-180.png">
+<meta name="apple-mobile-web-app-title" content="Cricket’s">
+<link rel="apple-touch-icon" href="../icons/icon-180.png">
 <link rel="icon" type="image/png" href="icons/icon-192.png">
-<link rel="manifest" href="manifest.webmanifest">
+<link rel="manifest" href="../manifest.webmanifest">
 <!--
   Crochet Toolkit · Module 1 · Image-to-Chart Generator  (mobile / installable PWA)
   ------------------------------------------------------------------------------
@@ -133,7 +133,9 @@
 <div class="wrap">
   <header class="app">
     <h1>🧶 Chart Generator</h1>
-    <span class="sub">Crochet Toolkit · photo → griddable chart</span>
+    <span class="sub">Cricket’s Crochet Toolkit · photo → griddable chart</span>
+    <span class="spacer"></span>
+    <button class="btn small ghost" data-action="gohome">‹ Toolkit</button>
   </header>
 
   <div id="banner-area"></div>
@@ -821,6 +823,7 @@ document.addEventListener('click', function(e){
   var el=e.target.closest('[data-action]'); if(!el) return;
   var a=el.getAttribute('data-action');
   switch(a){
+    case 'gohome': window.location.href='../'; break;
     case 'pick': onPick(false); break;
     case 'snap': onPick(true); break;
     case 'sample': loadAndShowSettings(Promise.resolve(makeSampleImageData())); break;
@@ -860,7 +863,7 @@ function renderInstall(){
     '<div class="hint">'+(iOS?'':'On other phones use your browser menu → "Add to Home Screen / Install."')+'</div>';
   if(!standalone){ $('banner-area').innerHTML='<div class="banner warn">📲 Add to your Home Screen to use this like an app, offline. '+(iOS?'Tap <b>Share</b> → <b>Add to Home Screen</b>.':'See "Use it as an app" below.')+'</div>'; }
 }
-if('serviceWorker' in navigator && location.protocol.indexOf('http')===0){ try{ navigator.serviceWorker.register('sw.js').catch(function(){}); }catch(_){} }
+if('serviceWorker' in navigator && location.protocol.indexOf('http')===0){ try{ navigator.serviceWorker.register('../sw.js').catch(function(){}); }catch(_){} }
 try{ if(navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(function(){}); }catch(_){}
 setMode('graphgan');
 renderInstall();

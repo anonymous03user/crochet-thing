@@ -3,17 +3,17 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Crochet Toolkit — Substitution Calculator</title>
+<title>Substitution Calculator · Cricket’s Crochet Toolkit</title>
 <meta name="theme-color" content="#6a4a9c">
 <meta name="color-scheme" content="light">
 <meta name="format-detection" content="telephone=no">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Substitute">
-<link rel="apple-touch-icon" href="icons/icon-180.png">
+<meta name="apple-mobile-web-app-title" content="Cricket’s">
+<link rel="apple-touch-icon" href="../icons/icon-180.png">
 <link rel="icon" type="image/png" href="icons/icon-192.png">
-<link rel="manifest" href="manifest.webmanifest">
+<link rel="manifest" href="../manifest.webmanifest">
 <!--
   Crochet Toolkit · Module 3 · Substitution + Yardage Calculator  (mobile / installable PWA)
   ------------------------------------------------------------------------------
@@ -126,7 +126,9 @@
 <div class="wrap">
   <header class="app">
     <h1>🧮 Substitute</h1>
-    <span class="sub">Crochet Toolkit · will this yarn work, &amp; how many skeins?</span>
+    <span class="sub">Cricket’s Crochet Toolkit · will this yarn work?</span>
+    <span class="spacer"></span>
+    <button class="btn small ghost" data-action="gohome">‹ Toolkit</button>
   </header>
 
   <div id="banner-area"></div>
@@ -696,6 +698,7 @@
   /* ---- events ---- */
   document.addEventListener('click', function(e){
     var el=e.target.closest('[data-action]'); if(el){ var a=el.getAttribute('data-action');
+      if(a==='gohome'){ window.location.href='../'; return; }
       if(a==='closemodal'){ closeModal(); return; }
       if(a==='pick-stash'){ openStashPicker(el.getAttribute('data-side')); return; }
       if(a==='pick-ravelry'){ openRavelrySearch(el.getAttribute('data-side')); return; }
@@ -729,7 +732,7 @@
   (function(){ var s=Rv.loadSettings(); if(s.bands) S.setBands(s.bands); })();
   updateRavelryButtons();
   renderInstall();
-  if('serviceWorker' in navigator && location.protocol.indexOf('http')===0){ try{ navigator.serviceWorker.register('sw.js').catch(function(){}); }catch(_){} }
+  if('serviceWorker' in navigator && location.protocol.indexOf('http')===0){ try{ navigator.serviceWorker.register('../sw.js').catch(function(){}); }catch(_){} }
   try{ if(navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(function(){}); }catch(_){}
   maybeInstallBanner();
   switchView('compare');

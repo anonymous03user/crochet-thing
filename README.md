@@ -1,36 +1,37 @@
-# crochet-thing — Crochet Toolkit
+# Cricket's Crochet Toolkit
 
-A small suite of crochet tools. Each tool is built to stand on its own, but the
-browser-based ones share one common "stash" (your yarn list) so they can talk to each other.
+**One installable app, three crochet helpers inside it** — a yarn stash tracker, a
+photo-to-chart generator, and a yarn substitution calculator. They all share one yarn list
+(saved on the device) so they can talk to each other.
 
-See **[BUILD_PLAN.md](BUILD_PLAN.md)** for the full plan and the order things get built in.
+**Live app (the menu / home screen):** **https://anonymous03user.github.io/crochet-thing/**
+
+**📲 Install on an iPhone (one time)**
+1. Open **https://anonymous03user.github.io/crochet-thing/** in **Safari**.
+2. Tap the **Share** button → **Add to Home Screen** → **Add**.
+3. Open it from the new **Cricket's** icon. The whole toolkit then runs **offline like a real
+   app** — pick a tool from the menu, and use the **‹ Toolkit** button to get back.
+
+Why hosted instead of a local file: iPhones only allow "install as an app + keep data + work
+offline" for pages served over https. Nothing leaves the phone — **your yarn data is stored only
+on your device** (no account, no server, no internet after the first load). Installing as a
+Home-Screen app also protects the data from Safari's 7-day cleanup of regular websites.
+
+> ⚠️ **Keep a backup.** Phone storage can still be cleared if the device runs very low on space.
+> Use **Stash Manager → Data → Back up now** every so often and save the file off the phone
+> (Files / iCloud, or email it to yourself). That backup is the one thing that always survives.
+
+Under the hood each tool is its own small page (`stash/`, `chart/`, `substitute/`) behind one
+app identity (root `manifest.webmanifest` + one service worker `sw.js` that caches the whole
+toolkit for offline use). See **[BUILD_PLAN.md](BUILD_PLAN.md)** for the original plan.
 
 ---
 
-## What's built so far
+## The three tools
 
 ### 🧶 Stash Manager — `stash/index.html`
 
 Keep track of the yarn you own, so you stop buying duplicate skeins or running out mid-project.
-
-**Live app:** **https://anonymous03user.github.io/crochet-thing/stash/**
-
-It's built to be used **on a phone, installed like an app**:
-
-**📲 Install on an iPhone (recommended)**
-1. Open **https://anonymous03user.github.io/crochet-thing/stash/** in **Safari**.
-2. Tap the **Share** button → **Add to Home Screen** → **Add**.
-3. Open it from the new icon. From then on it runs **offline like an app**, and your stash
-   is saved reliably (a Home-Screen app isn't subject to Safari's 7-day data cleanup).
-
-Why hosted instead of a local file: iPhones only allow "install as an app + keep data + work
-offline" for pages served over https. Nothing leaves the phone — **your yarn data is stored only
-on your device** (no account, no server, no internet after the first load). The site just delivers
-the ~60 KB app.
-
-> ⚠️ **Keep a backup.** Phone storage can still be cleared if the device runs very low on space.
-> Use **Data → Back up now** every so often and save the file off the phone (Files / iCloud, or
-> email it to yourself). That backup is the one thing that always survives.
 
 What it does:
 - **Add / edit / delete yarn** — brand, line, color, dye lot, weight, fiber, yards & grams per
@@ -66,8 +67,8 @@ If any of that doesn't match how you actually track yarn, say so and it can be c
 Turn a photo into a **griddable crochet chart** (graphgan / single-crochet pixel / C2C) with a
 color key, per-color stitch counts, and yarn matching.
 
-**Live app:** **https://anonymous03user.github.io/crochet-thing/chart/** (install the same way:
-Safari → Share → Add to Home Screen).
+**Direct link:** **https://anonymous03user.github.io/crochet-thing/chart/** (or just open it
+from the toolkit menu).
 
 What it does:
 - Pick or take a photo → set the **width in stitches** and **how many colors** → **Generate**.
@@ -85,6 +86,27 @@ What it does:
 > [docs/research-prompts/chart-generator.md](docs/research-prompts/chart-generator.md) for the
 > questions to confirm. Always check colors against real yarn in good light.
 
+### 🧮 Substitution Calculator — `substitute/index.html`
+
+"The pattern calls for yarn X; I have/want yarn Y — **will it work, and how many skeins?**"
+
+**Direct link:** **https://anonymous03user.github.io/crochet-thing/substitute/** (or open it
+from the toolkit menu).
+
+What it does:
+- Enter the pattern's yarn and the yarn you'd use — by hand, **from your stash**, or by
+  **Ravelry look-up** (built in — search a yarn by name and its details auto-fill).
+- Get a clear **green / yellow / red verdict** with plain-language reasons and one concrete fix.
+  Gauge is treated as the real decider; weight category is a cross-check; fiber is a tradeoff note.
+- **"Find substitutes in my stash"** ranks every yarn you own against the pattern's yarn.
+- Works out **skeins to buy** (with leftover and a "+1 for dye-lot safety" nudge), and tells you
+  "you own N / need M" when the candidate came from your stash.
+- The "will it work" thresholds are flagged, editable assumptions (Settings) — see
+  [docs/research-prompts/substitution.md](docs/research-prompts/substitution.md).
+
+The Ravelry look-up goes through a tiny read-only proxy that keeps the API credentials off the
+site entirely — see [substitute/proxy/README.md](substitute/proxy/README.md).
+
 ## Coming next (see the build plan)
 
-Substitution + Yardage Calculator, Pattern Companion (AI), and an email Deal Tracker.
+Pattern Companion (AI) and an email Deal Tracker.
