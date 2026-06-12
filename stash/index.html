@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Crochet Toolkit — Stash Manager</title>
+<title>Stash Manager · Cricket’s Crochet Toolkit</title>
 <meta name="theme-color" content="#b5651d">
 <meta name="color-scheme" content="light">
 <meta name="format-detection" content="telephone=no">
@@ -12,10 +12,10 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Stash">
-<link rel="apple-touch-icon" href="icons/icon-180.png">
+<meta name="apple-mobile-web-app-title" content="Cricket’s">
+<link rel="apple-touch-icon" href="../icons/icon-180.png">
 <link rel="icon" type="image/png" href="icons/icon-192.png">
-<link rel="manifest" href="manifest.webmanifest">
+<link rel="manifest" href="../manifest.webmanifest">
 <!--
   Crochet Toolkit · Module 2 · Stash Manager  (mobile / installable PWA)
   ------------------------------------------------------------------------------
@@ -188,7 +188,9 @@
 <div class="wrap">
   <header class="app">
     <h1>🧶 Stash Manager</h1>
-    <span class="sub">Crochet Toolkit · keep track of the yarn you own</span>
+    <span class="sub">Cricket’s Crochet Toolkit · keep track of the yarn you own</span>
+    <span class="spacer"></span>
+    <button class="btn small ghost" data-action="gohome">‹ Toolkit</button>
   </header>
 
   <nav class="seg" role="tablist">
@@ -1306,6 +1308,7 @@
     const a=el.getAttribute('data-action'); const id=el.getAttribute('data-id');
     switch(a){
       case 'view': switchView(id); break;
+      case 'gohome': window.location.href='../'; break;
       case 'add': openItemForm(null); break;
       case 'detail': openDetail(id); break;
       case 'edititem': closeModal(); openItemForm(id); break;
@@ -1362,7 +1365,7 @@
   window.addEventListener('crochetstash:quota', function(){ $('banner-area').innerHTML='<div class="banner bad">Storage is full — your last change may not have been saved. Back up now, then remove some photos or items.</div>'; });
 
   // Register the offline service worker (only over http/https — skipped on file://).
-  if('serviceWorker' in navigator && location.protocol.indexOf('http')===0){ try{ navigator.serviceWorker.register('sw.js').catch(function(){}); }catch(_){} }
+  if('serviceWorker' in navigator && location.protocol.indexOf('http')===0){ try{ navigator.serviceWorker.register('../sw.js').catch(function(){}); }catch(_){} }
   // Best-effort: ask the browser to keep our storage (granted by heuristic on iOS 17+; harmless elsewhere).
   try{ if(navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(function(){}); }catch(_){}
 

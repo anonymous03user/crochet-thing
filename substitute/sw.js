@@ -1,32 +1,13 @@
-/* Crochet Toolkit — Substitution Calculator — offline service worker.
-   Caches the app shell so the Home-Screen app opens with no internet.
-   Strategy: network-first (so updates show when online), fall back to cache offline.
-   NOTE: it never caches the Ravelry proxy (that's cross-origin and handled by the Worker). */
-var CACHE = 'crochet-substitute-v1';
-var ASSETS = ['./', 'index.html', 'manifest.webmanifest', 'icons/icon-180.png', 'icons/icon-192.png', 'icons/icon-512.png'];
-
-self.addEventListener('install', function(e){
-  self.skipWaiting();
-  e.waitUntil(caches.open(CACHE).then(function(c){ return c.addAll(ASSETS).catch(function(){}); }));
-});
+/* RETIRED — the toolkit now uses ONE service worker at ../sw.js (Cricket's Crochet Toolkit).
+   This file stays only so previously-installed copies fetch it on their next update check,
+   clean up after themselves, and hand control to the toolkit-wide worker. */
+self.addEventListener('install', function(){ self.skipWaiting(); });
 self.addEventListener('activate', function(e){
-  e.waitUntil(caches.keys().then(function(keys){
-    return Promise.all(keys.map(function(k){ if(k !== CACHE) return caches.delete(k); }));
-  }).then(function(){ return self.clients.claim(); }));
-});
-self.addEventListener('fetch', function(e){
-  var req = e.request;
-  if(req.method !== 'GET') return;
-  if(req.url.indexOf('http') !== 0) return;
-  // only handle same-origin app-shell requests; let the Ravelry proxy fetch pass straight through
-  if(new URL(req.url).origin !== self.location.origin) return;
-  e.respondWith(
-    fetch(req).then(function(res){
-      var copy = res.clone();
-      caches.open(CACHE).then(function(c){ try{ c.put(req, copy); }catch(_){} });
-      return res;
-    }).catch(function(){
-      return caches.match(req).then(function(m){ return m || caches.match('index.html') || caches.match('./'); });
-    })
+  e.waitUntil(
+    caches.keys()
+      .then(function(keys){ return Promise.all(keys.filter(function(k){ return k.indexOf('crochet-substitute') === 0; }).map(function(k){ return caches.delete(k); })); })
+      .then(function(){ return self.registration.unregister(); })
+      .then(function(){ return self.clients.matchAll({ type: 'window' }); })
+      .then(function(clients){ clients.forEach(function(c){ try{ c.navigate(c.url); }catch(_){} }); })
   );
 });

@@ -1,13 +1,13 @@
 {
-  "name": "Crochet Toolkit — Substitute",
-  "short_name": "Substitute",
-  "description": "Will this yarn work for that pattern, and how many skeins? A yarn substitution + yardage calculator.",
+  "name": "Cricket's Crochet Toolkit",
+  "short_name": "Cricket's",
+  "description": "One little app of crochet helpers: yarn stash, photo-to-chart, and yarn substitution.",
   "start_url": ".",
   "scope": ".",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#fbf7f0",
-  "theme_color": "#6a4a9c",
+  "theme_color": "#4a7c3f",
   "icons": [
     { "src": "icons/icon-192.png", "type": "image/png", "sizes": "192x192" },
     { "src": "icons/icon-512.png", "type": "image/png", "sizes": "512x512" },
