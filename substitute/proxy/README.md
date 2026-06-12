@@ -1,5 +1,12 @@
 # Ravelry proxy — optional setup (for the "Look up on Ravelry" feature)
 
+> **Already done for this site.** The app ships pointing at a pre-deployed proxy
+> (`https://crochet-ravelry-proxy.crochet-thing.workers.dev`), so on
+> `https://anonymous03user.github.io` the Ravelry look-up **works out of the box — no setup**.
+> Follow the steps below only if you want your **own** proxy — required if you host the app
+> anywhere else, because the built-in Worker only accepts requests from that origin
+> (`ALLOWED_ORIGIN` in `worker.js`).
+
 The Substitution Calculator works fully **without** this — you can type yarn details in by
 hand or pull them from your Stash Manager. This proxy only adds the convenience of **looking
 up a yarn by name on Ravelry** and auto-filling its weight, gauge, fiber, and yards/skein.
