@@ -1,0 +1,959 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Pattern Companion · Cricket’s Crochet Toolkit</title>
+<meta name="theme-color" content="#a04663">
+<meta name="color-scheme" content="light">
+<meta name="format-detection" content="telephone=no">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Cricket’s">
+<link rel="apple-touch-icon" href="../icons/icon-180.png">
+<link rel="icon" type="image/png" href="icons/icon-192.png">
+<link rel="manifest" href="../manifest.webmanifest">
+<!--
+  Cricket's Crochet Toolkit · Pattern Companion
+  ------------------------------------------------------------------------------
+  Paste a written crochet pattern -> a big row/stitch counter that keeps your place,
+  a glossary, and (optionally, via the AI helper) the pattern broken into rounds with
+  stitch targets and plain-English explanations of confusing rows.
+
+  Works fully WITHOUT the AI: paste, count by hand, set your own targets, resume later.
+  The AI bits go through a tiny proxy (companion/proxy/) that keeps the API key
+  server-side — see proxy/README.md. AI results are HINTS, never gates: the counter
+  never advances a round by itself, and every AI number can be overridden by a tap.
+
+  NOTE FOR CRICKET: the builder doesn't crochet — the glossary meanings, the example
+  pattern, and a few defaults are flagged in Settings → "Things to double-check".
+-->
+<style>
+  :root{
+    --bg:#fbf7f0; --panel:#ffffff; --ink:#2e2a26; --muted:#857a6d; --line:#e7ddcf;
+    --accent:#a04663; --accent-soft:#f3dde4; --good:#3f7d4e; --warn:#b07b00; --bad:#b23b3b;
+    --chip:#f4ecef; --shadow:0 1px 3px rgba(60,40,20,.08), 0 6px 18px rgba(60,40,20,.06);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{font:16px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;color:var(--ink);background:var(--bg);-webkit-text-size-adjust:100%}
+  .wrap{max-width:560px;margin:0 auto;padding:0 calc(14px + env(safe-area-inset-right)) calc(20px + env(safe-area-inset-bottom)) calc(14px + env(safe-area-inset-left))}
+  header.app{padding:calc(14px + env(safe-area-inset-top)) 0 6px;display:flex;align-items:baseline;flex-wrap:wrap}
+  header.app h1{font-size:20px;margin:0 10px 0 0;font-weight:800}
+  header.app .sub{color:var(--muted);font-size:12.5px}
+  .spacer{flex:1}
+  button{font-family:inherit}
+  .btn{border:1px solid var(--line);background:var(--panel);color:var(--ink);padding:9px 14px;border-radius:10px;font-weight:700;font-size:14px;cursor:pointer}
+  .btn:hover{border-color:var(--accent)}
+  .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  .btn.ghost{background:transparent}
+  .btn.danger{color:var(--bad);border-color:#e9c9c9}
+  .btn.small{padding:6px 10px;font-size:13px;border-radius:8px}
+  .row{display:flex;flex-wrap:wrap;align-items:center;margin-bottom:-8px}
+  .row > *{margin:0 8px 8px 0}
+  nav.seg{display:flex;background:var(--chip);padding:5px;border-radius:12px;margin:6px 0 12px}
+  nav.seg button{flex:1;border:0;background:transparent;color:var(--muted);font-weight:700;font-size:13px;padding:8px 4px;border-radius:9px;cursor:pointer}
+  nav.seg button + button{margin-left:5px}
+  nav.seg button.active{background:var(--panel);color:var(--ink);box-shadow:var(--shadow)}
+  .view.hidden{display:none}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:13px;box-shadow:var(--shadow);margin-bottom:12px}
+  .card h2{margin:0 0 4px;font-size:15.5px}
+  .cap{font-size:12.5px;color:var(--muted);margin:0 0 8px}
+  .hint{font-size:12px;color:var(--muted);margin-top:4px}
+  .field{margin:9px 0}
+  .field > label{display:block;font-size:11px;font-weight:700;color:var(--muted);margin:0 0 4px 2px;text-transform:uppercase;letter-spacing:.4px}
+  input[type=text],input[type=url],input[type=number],textarea{width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:10px;background:#fffdf9;color:var(--ink);font-size:15px}
+  textarea{min-height:150px;resize:vertical}
+  .banner{border-radius:10px;padding:9px 12px;margin:0 0 10px;font-size:13.5px}
+  .banner.warn{background:#fff4d6;border:1px solid #ecd496;color:#705600}
+  .banner.info{background:var(--accent-soft);border:1px solid #e3c2cd;color:#7a3550}
+  .assumptions{font-size:12px;color:var(--muted);background:var(--accent-soft);border:1px solid #e3c2cd;border-radius:10px;padding:10px 12px;margin-top:8px}
+  .assumptions b{color:var(--accent)}
+  .testline{font-size:13px;padding:4px 0;border-bottom:1px dashed var(--line)}
+  .testline .ok{color:var(--good);font-weight:800}.testline .no{color:var(--bad);font-weight:800}
+  /* ---- Count view ---- */
+  .instr{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px;box-shadow:var(--shadow);margin-bottom:10px}
+  .instr .where{font-size:12px;font-weight:800;color:var(--accent);text-transform:uppercase;letter-spacing:.5px}
+  .instr .txt{font-size:15px;line-height:1.45;max-height:28vh;overflow:auto;-webkit-overflow-scrolling:touch;margin-top:4px;white-space:pre-wrap}
+  .instr .note{font-size:12.5px;color:var(--muted);margin-top:6px}
+  .hero{text-align:center;margin:6px 0 2px}
+  .hero .count{font-size:84px;font-weight:800;line-height:1;letter-spacing:-2px}
+  .hero .count .target{font-size:38px;color:var(--muted);font-weight:700}
+  .hero.at .count{color:var(--good)}
+  .hero.over .count{color:var(--warn)}
+  .hero .overnote{font-size:13px;color:var(--warn);font-weight:700;min-height:18px}
+  .bar{height:7px;border-radius:999px;background:var(--chip);overflow:hidden;margin:8px 2px 2px}
+  .bar > i{display:block;height:100%;background:var(--accent);width:0%}
+  .bar.thin{height:3px;margin-top:5px}
+  .bar.thin > i{background:#cbb6be}
+  @-webkit-keyframes bump{0%{-webkit-transform:scale(1.14)}100%{-webkit-transform:scale(1)}}
+  @keyframes bump{0%{transform:scale(1.14)}100%{transform:scale(1)}}
+  .hero .count.bump{-webkit-animation:bump .12s ease-out;animation:bump .12s ease-out}
+  @-webkit-keyframes glowp{0%,100%{box-shadow:0 0 0 0 rgba(63,125,78,.5)}50%{box-shadow:0 0 0 8px rgba(63,125,78,0)}}
+  @keyframes glowp{0%,100%{box-shadow:0 0 0 0 rgba(63,125,78,.5)}50%{box-shadow:0 0 0 8px rgba(63,125,78,0)}}
+  .pulse{-webkit-animation:glowp 1.4s infinite;animation:glowp 1.4s infinite;border-color:var(--good) !important}
+  .controls{touch-action:manipulation;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;margin-top:8px;padding-bottom:env(safe-area-inset-bottom)}
+  .crow{display:flex}
+  .crow + .crow{margin-top:9px}
+  .crow > * + *{margin-left:9px}
+  .cbtn{border:1px solid var(--line);background:var(--panel);border-radius:14px;font-weight:800;cursor:pointer;box-shadow:var(--shadow);color:var(--ink)}
+  .cbtn:active{background:var(--chip)}
+  .cbtn.minor{flex:1;font-size:17px;padding:14px 0}
+  .cbtn.big{width:100%;font-size:26px;padding:38px 0;background:var(--accent);border-color:var(--accent);color:#fff;border-radius:18px}
+  .cbtn.big:active{filter:brightness(.92)}
+  .cbtn.prev{flex:1;font-size:14px;padding:13px 0;color:var(--muted)}
+  .cbtn.next{flex:2;font-size:16px;padding:13px 0}
+  /* library */
+  .pcard{background:var(--panel);border:1px solid var(--line);border-radius:13px;padding:11px 12px;box-shadow:var(--shadow);margin-bottom:9px;cursor:pointer;display:flex;align-items:center}
+  .pcard:hover{border-color:var(--accent)}
+  .pcard .nm{font-weight:800;font-size:15px}
+  .pcard .meta{font-size:12px;color:var(--muted)}
+  .pcard .mid{flex:1;min-width:0;margin-right:8px}
+  .badge{display:inline-block;font-size:10.5px;font-weight:800;padding:1px 7px;border-radius:999px;background:var(--chip);color:var(--muted);margin-left:6px;vertical-align:1px}
+  .badge.parsed{background:#e7f1e9;color:var(--good)}
+  .badge.demo{background:var(--accent-soft);color:var(--accent)}
+  /* glossary */
+  .gl{display:flex;font-size:13.5px;padding:5px 0;border-bottom:1px dashed var(--line)}
+  .gl .a{flex:0 0 70px;font-weight:800}
+  .gl .m{flex:1}
+  .gl .src{font-size:10.5px;color:var(--muted);margin-left:6px}
+  /* modal / sheet / dialog / toast (iOS-safe set, as in the siblings) */
+  #modal{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(50,25,35,.45);display:flex;align-items:flex-end;justify-content:center;z-index:50}
+  #modal.hidden{display:none}
+  .modal-card{background:var(--bg);width:100%;max-width:560px;max-height:92vh;overflow:auto;-webkit-overflow-scrolling:touch;border-radius:18px 18px 0 0;box-shadow:0 -8px 30px rgba(0,0,0,.2)}
+  .modal-head{position:-webkit-sticky;position:sticky;top:0;background:var(--bg);display:flex;align-items:center;padding:13px 16px;border-bottom:1px solid var(--line);z-index:2}
+  .modal-head h2{margin:0;font-size:17px;flex:1}
+  .modal-head > * + *{margin-left:10px}
+  .modal-body{padding:13px 16px calc(16px + env(safe-area-inset-bottom))}
+  #dialog{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(50,25,35,.5);display:flex;align-items:center;justify-content:center;z-index:90;padding:24px}
+  #dialog.hidden{display:none}
+  .dialog-card{background:var(--bg);width:100%;max-width:360px;border-radius:16px;padding:18px;box-shadow:0 10px 40px rgba(0,0,0,.3)}
+  .dialog-msg{font-size:15px;margin-bottom:16px;line-height:1.45}
+  .dialog-actions{display:flex;justify-content:flex-end}
+  .dialog-actions > * + *{margin-left:8px}
+  #toast{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);background:#33222a;color:#fff;padding:11px 16px;border-radius:10px;font-size:14px;box-shadow:0 6px 20px rgba(0,0,0,.25);z-index:80;max-width:90vw;text-align:center}
+  #toast.hidden{display:none}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="app">
+    <h1>🧮 Pattern Companion</h1>
+    <span class="sub">Cricket’s Crochet Toolkit</span>
+    <span class="spacer"></span>
+    <button class="btn small ghost" data-action="gohome">‹ Toolkit</button>
+  </header>
+
+  <nav class="seg">
+    <button data-view="count">Count</button>
+    <button data-view="pattern">Pattern</button>
+    <button data-view="library" class="active">Library</button>
+    <button data-view="settings">Settings</button>
+  </nav>
+
+  <section id="view-count" class="view hidden"></section>
+  <section id="view-pattern" class="view hidden"></section>
+  <section id="view-library" class="view"></section>
+  <section id="view-settings" class="view hidden"></section>
+</div>
+
+<div id="modal" class="hidden"><div class="modal-card"><div id="modal-inner"></div></div></div>
+<div id="dialog" class="hidden"><div class="dialog-card"></div></div>
+<div id="toast" class="hidden"></div>
+
+<script>
+"use strict";
+/* ==========================================================================
+   PART 1 — STORE (own key; corruption-backed; quota-safe; NEVER touches the stash)
+   ========================================================================== */
+(function(){
+  var KEY='crochetToolkit.companion.v1';
+  var BACKUP_KEY='crochetToolkit.companion.backup';
+  var SCHEMA=1;
+  var mem=null;            // in-memory fallback when localStorage is unavailable
+  var quotaWarned=false;
+
+  function uid(){ try{ if(self.crypto && crypto.randomUUID) return crypto.randomUUID(); }catch(_){ } return 'p-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,9); }
+  function nowIso(){ try{ return new Date().toISOString(); }catch(_){ return ''; } }
+  function defaultStore(){ return { schemaVersion:SCHEMA, settings:{ proxyUrl:'', lastOpenedId:null, hintsDismissed:{} }, patterns:[] }; }
+  function migrate(s){ if(!s.schemaVersion) s.schemaVersion=SCHEMA; return s; }
+  function shapeOk(s){ return s && typeof s==='object' && Array.isArray(s.patterns) && s.settings && typeof s.settings==='object'; }
+
+  function loadStore(){
+    if(mem) return mem;
+    var raw=null;
+    try{ raw=localStorage.getItem(KEY); }catch(_){ mem=defaultStore(); return mem; }
+    if(!raw){ mem=defaultStore(); return mem; }
+    try{
+      var s=JSON.parse(raw);
+      if(!shapeOk(s)) throw new Error('shape');
+      mem=migrate(s); return mem;
+    }catch(_){
+      // keep a copy of whatever was there before resetting — never silently destroy data
+      try{ localStorage.setItem(BACKUP_KEY, raw); }catch(__){}
+      mem=defaultStore();
+      mem._recoveredFromCorruption=true;
+      return mem;
+    }
+  }
+  function saveStore(){
+    if(!mem) return true;
+    try{ localStorage.setItem(KEY, JSON.stringify(mem)); return true; }
+    catch(_){
+      if(!quotaWarned){ quotaWarned=true; try{ window.dispatchEvent(new CustomEvent('companion:quota')); }catch(__){} }
+      return false;  // in-memory state stays live; the current count is never lost mid-row
+    }
+  }
+  function getPattern(id){ var s=loadStore(); for(var i=0;i<s.patterns.length;i++) if(s.patterns[i].id===id) return s.patterns[i]; return null; }
+  function createPattern(name, text, demo){
+    var s=loadStore();
+    var p={ id:uid(), name:String(name||'Untitled pattern').slice(0,80), text:String(text||''), demo:!!demo,
+      parsed:null, manualTargets:{}, position:{roundIdx:0,stitch:0}, explanations:{},
+      flags:{ukBannerDismissed:false}, lastParseError:null, createdAt:nowIso(), updatedAt:nowIso() };
+    s.patterns.push(p); saveStore(); return p;
+  }
+  function touch(p){ p.updatedAt=nowIso(); saveStore(); }
+  function renamePattern(id, name){ var p=getPattern(id); if(p){ p.name=String(name||p.name).slice(0,80); touch(p); } }
+  function deletePattern(id){ var s=loadStore(); for(var i=0;i<s.patterns.length;i++) if(s.patterns[i].id===id){ s.patterns.splice(i,1); break; } if(s.settings.lastOpenedId===id) s.settings.lastOpenedId=null; saveStore(); }
+  function setPosition(id, pos){ var p=getPattern(id); if(p){ p.position={roundIdx:pos.roundIdx,stitch:pos.stitch}; touch(p); } }
+  function setManualTarget(id, roundIdx, val){ var p=getPattern(id); if(!p) return; if(val==null) delete p.manualTargets[roundIdx]; else p.manualTargets[roundIdx]=val; touch(p); }
+  function cacheExplanation(id, roundIdx, hash, text){ var p=getPattern(id); if(!p) return; p.explanations[roundIdx]={hash:hash, text:String(text).slice(0,600), at:nowIso()}; touch(p); }
+  function hydrateParse(id, cleaned, problems){
+    var p=getPattern(id); if(!p) return;
+    p.parsed=cleaned; p.lastParseError=null; p.parsedAt=nowIso(); p.parseProblems=problems||[];
+    // drop cached explanations whose instruction changed (hash mismatch handled at read; stale indexes pruned here)
+    var keep={};
+    for(var k in p.explanations){ var idx=parseInt(k,10); if(cleaned.rounds[idx] && window.CompanionEngine.hashInstruction(cleaned.rounds[idx].instruction)===p.explanations[k].hash) keep[k]=p.explanations[k]; }
+    p.explanations=keep;
+    touch(p);
+  }
+  window.CompanionStore={ KEY:KEY, BACKUP_KEY:BACKUP_KEY, loadStore:loadStore, saveStore:saveStore, defaultStore:defaultStore,
+    migrate:migrate, uid:uid, nowIso:nowIso, getPattern:getPattern, createPattern:createPattern, renamePattern:renamePattern,
+    deletePattern:deletePattern, setPosition:setPosition, setManualTarget:setManualTarget, cacheExplanation:cacheExplanation,
+    hydrateParse:hydrateParse, _resetMem:function(){ mem=null; } };
+})();
+
+/* ==========================================================================
+   PART 2 — ENGINE (pure: plan, counter math, validator, glossary, fallback explain)
+   ========================================================================== */
+(function(){
+  var MAX_ROUNDS=500, MAX_COUNT=999;
+
+  /* The counter never branches on "AI vs manual" — getPlan() abstracts the data source.
+     A manual target override ALWAYS beats the AI's number. */
+  function getPlan(p){
+    var parsed=p && p.parsed;
+    var rounds=(parsed && parsed.rounds) || null;
+    return {
+      mode: rounds ? 'parsed' : 'manual',
+      totalRounds: rounds ? rounds.length : null,
+      roundFor: function(i){
+        var mt=(p && p.manualTargets && p.manualTargets[i]!=null) ? p.manualTargets[i] : null;
+        if(rounds && rounds[i]){
+          var r=rounds[i];
+          return { label:r.label, instruction:r.instruction, note:r.note, target:(mt!=null?mt:r.stitchCount), targetIsOverride:mt!=null, aiTarget:r.stitchCount };
+        }
+        return { label:(rounds? 'Beyond the pattern' : 'Row '+(i+1)), instruction:null, note:null, target:mt, targetIsOverride:mt!=null, aiTarget:null };
+      }
+    };
+  }
+
+  /* applyAction(position, action) -> {position, inverse}. Inverse actions power undo;
+     undoing a "next round" restores the exact pre-advance stitch count. */
+  function applyAction(pos, action){
+    var p={roundIdx:pos.roundIdx, stitch:pos.stitch};
+    if(action.type==='stitch+'){ p.stitch++; return {position:p, inverse:{type:'stitch-'}}; }
+    if(action.type==='stitch-'){ if(p.stitch>0) p.stitch--; return {position:p, inverse:{type:'stitch+'}}; }
+    if(action.type==='row+'){ var prev=p.stitch; p.roundIdx++; p.stitch=0; return {position:p, inverse:{type:'row-', restoreStitch:prev}}; }
+    if(action.type==='row-'){ if(p.roundIdx>0){ p.roundIdx--; p.stitch=(action.restoreStitch!=null?action.restoreStitch:0); } return {position:p, inverse:{type:'row+'}}; }
+    return {position:p, inverse:null};
+  }
+  function undoLast(pos, stack){
+    if(!stack.length) return {position:pos, stack:stack};
+    var inv=stack.pop();
+    var r=applyAction(pos, inv);
+    return {position:r.position, stack:stack};
+  }
+
+  /* ---- client-side validator: SALVAGE, never throw, ranges live HERE (the worker's
+     json_schema can't express min/max — structured outputs reject those keywords). ---- */
+  function vStr(x,max){ return (typeof x==='string' && x.trim()) ? x.trim().slice(0,max) : null; }
+  function vInt(x,min,max){ return (typeof x==='number' && isFinite(x) && Math.round(x)===x && x>=min && x<=max) ? x : null; }
+  function coerceRound(raw, n, problems){
+    raw=(raw&&typeof raw==='object')?raw:{};
+    var instruction=vStr(raw.instruction,600);
+    if(!instruction){ problems.push('Dropped round '+(n+1)+' — no readable instruction.'); return null; }
+    var sc=null;
+    if(raw.stitchCount!=null){
+      sc=vInt(raw.stitchCount,1,MAX_COUNT);
+      if(sc==null) problems.push('Round '+(n+1)+': implausible stitch count — treating it as "no target".');
+    }
+    return { index:n, label:vStr(raw.label,40)||('Round '+(n+1)), instruction:instruction, stitchCount:sc, note:vStr(raw.note,300) };
+  }
+  function validateParsed(raw){
+    var problems=[];
+    if(!raw || typeof raw!=='object') return {ok:false, parsed:null, problems:['The AI reply was not readable.']};
+    if(!Array.isArray(raw.rounds) || raw.rounds.length===0) return {ok:false, parsed:null, problems:['The AI found no rounds in this pattern.']};
+    var rounds=[];
+    var src=raw.rounds.slice(0,MAX_ROUNDS);
+    if(raw.rounds.length>MAX_ROUNDS) problems.push('Pattern very long — only the first '+MAX_ROUNDS+' rounds were kept.');
+    for(var i=0;i<src.length;i++){ var r=coerceRound(src[i], rounds.length, problems); if(r) rounds.push(r); }
+    if(!rounds.length) return {ok:false, parsed:null, problems:problems.concat(['No usable rounds survived checking.'])};
+    var term=(raw.terminology==='US'||raw.terminology==='UK'||raw.terminology==='unknown')?raw.terminology:'unknown';
+    if(term!==raw.terminology) problems.push('Terminology label was unclear — treating as unknown.');
+    var abbrs=[]; var seen={};
+    if(Array.isArray(raw.abbreviations)){
+      for(var a=0;a<raw.abbreviations.length && abbrs.length<60;a++){
+        var ab=raw.abbreviations[a]; if(!ab||typeof ab!=='object') continue;
+        var k=vStr(ab.abbr,20), m=vStr(ab.meaning,200);
+        if(k&&m&&!seen[k.toLowerCase()]){ seen[k.toLowerCase()]=1; abbrs.push({abbr:k,meaning:m}); }
+      }
+    }
+    var rm=(raw.materials&&typeof raw.materials==='object')?raw.materials:{};
+    var hook=(typeof rm.hookMm==='number'&&isFinite(rm.hookMm)&&rm.hookMm>=0.5&&rm.hookMm<=25)?rm.hookMm:null;
+    if(rm.hookMm!=null&&hook==null) problems.push('Hook size looked wrong — ignored it.');
+    var materials={ yarnWeight:vInt(rm.yarnWeight,0,7), hookMm:hook,
+      estYards:(typeof rm.estYards==='number'&&isFinite(rm.estYards)&&rm.estYards>0)?Math.round(rm.estYards):null,
+      notes:vStr(rm.notes,500) };
+    var warnings=[];
+    if(Array.isArray(raw.warnings)) for(var w=0;w<raw.warnings.length&&warnings.length<10;w++){ var ws=vStr(raw.warnings[w],200); if(ws) warnings.push(ws); }
+    return { ok:true, problems:problems, parsed:{ title:vStr(raw.title,120), terminology:term, abbreviations:abbrs, materials:materials, rounds:rounds, warnings:warnings } };
+  }
+
+  /* ---- glossary ---- */
+  // FLAGGED (rule 9): curated by a non-crocheter from common US conventions — Cricket should skim.
+  var BUILTIN_GLOSSARY=[
+    {abbr:'ch',meaning:'chain',uk:null},{abbr:'sl st',meaning:'slip stitch',uk:null},
+    {abbr:'sc',meaning:'single crochet',uk:'UK patterns call this "dc"'},
+    {abbr:'hdc',meaning:'half double crochet',uk:'UK: "htr"'},
+    {abbr:'dc',meaning:'double crochet',uk:'UK patterns use "dc" for the US single crochet — check the terminology!'},
+    {abbr:'tr',meaning:'treble crochet',uk:'UK: "dtr"'},
+    {abbr:'dtr',meaning:'double treble crochet',uk:null},
+    {abbr:'inc',meaning:'increase — 2 stitches in the same stitch',uk:null},
+    {abbr:'dec',meaning:'decrease — join 2 stitches into 1',uk:null},
+    {abbr:'sc2tog',meaning:'single crochet 2 together (a decrease)',uk:null},
+    {abbr:'dc2tog',meaning:'double crochet 2 together (a decrease)',uk:null},
+    {abbr:'mr',meaning:'magic ring (adjustable loop start)',uk:null},
+    {abbr:'magic ring',meaning:'adjustable loop start, pulled tight after round 1',uk:null},
+    {abbr:'yo',meaning:'yarn over',uk:null},{abbr:'st',meaning:'stitch',uk:null},{abbr:'sts',meaning:'stitches',uk:null},
+    {abbr:'rnd',meaning:'round',uk:null},{abbr:'rnds',meaning:'rounds',uk:null},
+    {abbr:'rep',meaning:'repeat',uk:null},{abbr:'sk',meaning:'skip',uk:'UK: "miss"'},
+    {abbr:'sp',meaning:'space',uk:null},{abbr:'tog',meaning:'together',uk:null},
+    {abbr:'blo',meaning:'back loop only',uk:null},{abbr:'flo',meaning:'front loop only',uk:null},
+    {abbr:'beg',meaning:'beginning',uk:null},{abbr:'fo',meaning:'fasten off',uk:null},
+    {abbr:'ws',meaning:'wrong side',uk:null},{abbr:'rs',meaning:'right side',uk:null},
+    {abbr:'ch-sp',meaning:'chain space',uk:null},{abbr:'turn',meaning:'turn the work to start the next row',uk:null}
+  ];
+  function escRe(s){ return s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'); }
+  function scanAbbreviations(text){
+    var found=[], t=' '+String(text||'').toLowerCase()+' ';
+    for(var i=0;i<BUILTIN_GLOSSARY.length;i++){
+      var g=BUILTIN_GLOSSARY[i];
+      var re=new RegExp('(^|[^a-z])'+escRe(g.abbr.toLowerCase())+'($|[^a-z])');
+      if(re.test(t)) found.push(g);
+    }
+    return found;
+  }
+  function buildGlossary(p){
+    var out=[], seen={};
+    if(p && p.parsed && p.parsed.abbreviations){
+      p.parsed.abbreviations.forEach(function(a){
+        var entry={abbr:a.abbr, meaning:a.meaning, src:'from pattern', uk:null};
+        var b=null; for(var i=0;i<BUILTIN_GLOSSARY.length;i++) if(BUILTIN_GLOSSARY[i].abbr.toLowerCase()===a.abbr.toLowerCase()) b=BUILTIN_GLOSSARY[i];
+        if(b && b.meaning.toLowerCase()!==a.meaning.toLowerCase()) entry.differs=true;
+        out.push(entry); seen[a.abbr.toLowerCase()]=1;
+      });
+    }
+    scanAbbreviations(p?p.text:'').forEach(function(g){ if(!seen[g.abbr.toLowerCase()]){ out.push({abbr:g.abbr,meaning:g.meaning,src:'built-in',uk:g.uk}); seen[g.abbr.toLowerCase()]=1; } });
+    return out;
+  }
+  function hashInstruction(s){ var h=5381, t=String(s||'').replace(/\s+/g,' ').trim().toLowerCase(); for(var i=0;i<t.length;i++){ h=((h<<5)+h+t.charCodeAt(i))|0; } return String(h); }
+  /* Deterministic offline explanation: expand known abbreviations, longest first. */
+  function localExplain(instruction, glossary, round){
+    var lines=[];
+    var entries=(glossary||[]).slice().sort(function(a,b){ return b.abbr.length-a.abbr.length; });
+    var t=' '+String(instruction||'')+' ';
+    var used=[];
+    entries.forEach(function(g){
+      var re=new RegExp('(^|[^A-Za-z])'+escRe(g.abbr)+'($|[^A-Za-z])','i');
+      if(re.test(t)) used.push(g.abbr+' = '+g.meaning);
+    });
+    lines.push('In plain terms: '+instruction);
+    if(used.length) lines.push('Abbreviations here: '+used.join('; ')+'.');
+    if(round && round.note) lines.push('Note: '+round.note);
+    if(round && round.target!=null) lines.push('Expected stitches at the end of this round: '+round.target+'.');
+    lines.push('(For a full plain-English walkthrough, connect the AI helper in Settings.)');
+    return lines.join('\n');
+  }
+
+  window.CompanionEngine={ getPlan:getPlan, applyAction:applyAction, undoLast:undoLast,
+    validateParsed:validateParsed, coerceRound:coerceRound, BUILTIN_GLOSSARY:BUILTIN_GLOSSARY,
+    scanAbbreviations:scanAbbreviations, buildGlossary:buildGlossary, hashInstruction:hashInstruction, localExplain:localExplain };
+})();
+
+/* ==========================================================================
+   PART 3 — NET (optional AI proxy; degrades to nothing; never worse with AI)
+   ========================================================================== */
+(function(){
+  var St=window.CompanionStore;
+  // Bake the deployed proxy URL here once the owner deploys companion/proxy/ (like the Ravelry one).
+  var DEFAULT_PROXY='';
+  var MAX_PATTERN_CHARS=16000;   // must match companion/proxy/worker.js
+  function proxyUrl(){
+    var u=String((St.loadStore().settings.proxyUrl)||'').trim();
+    if(u.toLowerCase()==='off') return '';
+    if(/^https:\/\//.test(u)) return u.replace(/\/+$/,'');
+    return DEFAULT_PROXY;
+  }
+  function hasProxy(){ return !!proxyUrl(); }
+  function post(path, body, timeoutMs){
+    var base=proxyUrl();
+    if(!base) return Promise.reject(new Error('AI helper is not set up.'));
+    var late=false;
+    return new Promise(function(resolve,reject){
+      var timer=setTimeout(function(){ late=true; reject(new Error('That took too long — try again.')); }, timeoutMs||20000);
+      fetch(base+path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})
+        .then(function(r){ return r.json().catch(function(){ return null; }).then(function(d){ return {r:r,d:d}; }); })
+        .then(function(x){ if(late) return; clearTimeout(timer);
+          if(!x.d) return reject(new Error('Unreadable reply.'));
+          if(!x.r.ok || x.d.error) return reject(new Error(x.d.error||('Error '+x.r.status)));
+          resolve(x.d); })
+        .catch(function(e){ if(late) return; clearTimeout(timer); reject(e); });
+    });
+  }
+  function requestParse(text){
+    if(String(text||'').length>MAX_PATTERN_CHARS) return Promise.reject(new Error('Pattern too long — split it into parts under '+MAX_PATTERN_CHARS+' characters.'));
+    return post('/parse',{pattern:text},60000).then(function(d){ return d.parsed; });
+  }
+  function buildExplainContext(p, plan, roundIdx){
+    var bits=[];
+    if(p.parsed&&p.parsed.title) bits.push('Pattern: "'+p.parsed.title+'".');
+    if(p.parsed&&p.parsed.terminology&&p.parsed.terminology!=='unknown') bits.push('Terminology: '+p.parsed.terminology+'.');
+    var r=plan.roundFor(roundIdx);
+    bits.push('This is "'+r.label+'", round '+(roundIdx+1)+(plan.totalRounds?(' of '+plan.totalRounds):'')+'.');
+    if(r.target!=null) bits.push('Expected stitches at the end: '+r.target+'.');
+    return bits.join(' ').slice(0,300);
+  }
+  function requestExplain(instruction, context){ return post('/explain',{instruction:String(instruction).slice(0,600),context:context||''},15000).then(function(d){ return d.explanation; }); }
+  function testConnection(){
+    if(!hasProxy()) return Promise.resolve({ok:false,msg:'AI helper is off / not set up.'});
+    return requestExplain('ch 2, 6 sc in second ch from hook','Test from the Pattern Companion settings page.')
+      .then(function(){ return {ok:true,msg:'Connected — the AI helper is working.'}; })
+      .catch(function(e){ return {ok:false,msg:'Could not reach the AI helper ('+(e&&e.message||'error')+').'}; });
+  }
+  window.CompanionNet={ MAX_PATTERN_CHARS:MAX_PATTERN_CHARS, proxyUrl:proxyUrl, hasProxy:hasProxy,
+    requestParse:requestParse, requestExplain:requestExplain, buildExplainContext:buildExplainContext, testConnection:testConnection };
+})();
+
+/* ==========================================================================
+   PART 4 — UI
+   ========================================================================== */
+(function(){
+  var St=window.CompanionStore, En=window.CompanionEngine, Net=window.CompanionNet;
+  var $=function(id){ return document.getElementById(id); };
+  function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+  function toast(m){ var t=$('toast'); t.textContent=m; t.classList.remove('hidden'); clearTimeout(toast._t); toast._t=setTimeout(function(){t.classList.add('hidden');},2600); }
+
+  var view='library';
+  var currentId=null;
+  var undoStack=[];                 // session-only inverse actions, cap 50
+  var UNDO_DEPTH=50, TAP_DEBOUNCE_MS=150;
+  var lastTap=0;
+  var wakeLock=null;
+
+  /* ---- dialogs (iOS-standalone-safe) ---- */
+  var _dlg=null;
+  function showDialog(h){ var d=$('dialog'); d.querySelector('.dialog-card').innerHTML=h; d.classList.remove('hidden'); }
+  function hideDialog(){ $('dialog').classList.add('hidden'); $('dialog').querySelector('.dialog-card').innerHTML=''; }
+  function confirmDialog(msg,opts){ opts=opts||{}; return new Promise(function(res){ showDialog('<div class="dialog-msg">'+esc(msg)+'</div><div class="dialog-actions"><button class="btn ghost" data-dlg="cancel">'+esc(opts.cancelText||'Cancel')+'</button><button class="btn '+(opts.danger?'danger':'primary')+'" data-dlg="ok">'+esc(opts.okText||'OK')+'</button></div>'); _dlg=function(v){ hideDialog(); res(v==='ok'); }; }); }
+  function promptDialog(msg, value){ return new Promise(function(res){ showDialog('<div class="dialog-msg">'+esc(msg)+'</div><input type="text" id="dlg-in" value="'+esc(value||'')+'" style="margin-bottom:14px"><div class="dialog-actions"><button class="btn ghost" data-dlg="cancel">Cancel</button><button class="btn primary" data-dlg="ok">OK</button></div>'); _dlg=function(v){ var val=(v==='ok')?($('dlg-in')?$('dlg-in').value:null):null; hideDialog(); res(val); }; setTimeout(function(){ var e=$('dlg-in'); if(e){e.focus();} },60); }); }
+  function numberDialog(msg, value){ return new Promise(function(res){ showDialog('<div class="dialog-msg">'+esc(msg)+'</div><input type="number" id="dlg-in" min="0" step="1" value="'+esc(value==null?'':value)+'" style="margin-bottom:14px"><div class="dialog-actions"><button class="btn ghost" data-dlg="clear">No target</button><button class="btn ghost" data-dlg="cancel">Cancel</button><button class="btn primary" data-dlg="ok">Set</button></div>'); _dlg=function(v){ var out; if(v==='ok'){ var n=parseInt(($('dlg-in')||{}).value,10); out=(isFinite(n)&&n>0&&n<=999)?{set:n}:{cancel:true}; } else if(v==='clear'){ out={clear:true}; } else out={cancel:true}; hideDialog(); res(out); }; setTimeout(function(){ var e=$('dlg-in'); if(e){e.focus(); e.select&&e.select();} },60); }); }
+  $('dialog').addEventListener('click', function(e){ var b=e.target.closest('[data-dlg]'); if(b){ if(_dlg){ var r=_dlg;_dlg=null;r(b.getAttribute('data-dlg')); } return; } if(e.target===$('dialog')&&_dlg){ var r2=_dlg;_dlg=null;r2('cancel'); } });
+
+  function openModal(title, body){ $('modal-inner').innerHTML='<div class="modal-head"><h2>'+esc(title)+'</h2><button class="btn ghost small" data-action="closemodal">✕</button></div><div class="modal-body">'+body+'</div>'; $('modal').classList.remove('hidden'); }
+  function closeModal(){ $('modal').classList.add('hidden'); $('modal-inner').innerHTML=''; }
+  $('modal').addEventListener('click', function(e){ if(e.target===$('modal')) closeModal(); });
+
+  /* ---- view switching ---- */
+  function switchView(v){
+    if((v==='count'||v==='pattern') && !currentId){ v='library'; }
+    view=v;
+    ['count','pattern','library','settings'].forEach(function(k){ $('view-'+k).classList.toggle('hidden',k!==v); });
+    document.querySelectorAll('nav.seg button').forEach(function(b){ b.classList.toggle('active', b.getAttribute('data-view')===v); });
+    if(v==='count') renderCount();
+    else if(v==='pattern') renderPattern();
+    else if(v==='library') renderLibrary();
+    else renderSettings();
+  }
+
+  /* ================= COUNT ================= */
+  function renderCount(){
+    var p=St.getPattern(currentId); if(!p){ switchView('library'); return; }
+    var plan=En.getPlan(p);
+    var pos=p.position, r=plan.roundFor(pos.roundIdx);
+    var target=r.target;
+    var beyond = plan.mode==='parsed' && pos.roundIdx>=plan.totalRounds;
+    var heroCls = (target!=null && pos.stitch===target)?'at':((target!=null&&pos.stitch>target)?'over':'');
+    var whereTxt = plan.mode==='parsed'
+      ? (beyond? 'Beyond the parsed rounds — counting freely' : esc(r.label)+' · round '+(pos.roundIdx+1)+' of '+plan.totalRounds)
+      : 'Row '+(pos.roundIdx+1);
+    var banner='';
+    if(plan.mode==='parsed' && p.parsed.terminology==='UK' && !p.flags.ukBannerDismissed){
+      banner='<div class="banner warn">⚠ This pattern uses <b>UK terms</b> — a UK “dc” is a US “sc”. See the conversion notes on the Pattern tab. <button class="btn small ghost" data-action="dismiss-uk">Got it</button></div>';
+    }
+    var html=banner+
+      '<div class="instr">'+
+        '<div class="where">'+whereTxt+'</div>'+
+        (r.instruction?('<div class="txt">'+esc(r.instruction)+'</div>'):(plan.mode==='manual'?'<div class="hint">Counting freely — set a stitch target below if you like. The full pasted pattern is on the Pattern tab.</div>':'<div class="hint">No instruction for this round.</div>'))+
+        (r.note?('<div class="note">📝 '+esc(r.note)+'</div>'):'')+
+        ((plan.mode==='parsed' && !beyond)?'<div class="row" style="margin-top:8px"><button class="btn small" data-action="explain">💡 Explain this row</button></div>':'')+
+      '</div>'+
+      '<div class="hero '+heroCls+'" id="hero">'+
+        '<div class="count" id="count-num">'+pos.stitch+(target!=null?('<span class="target"> / '+target+'</span>'):'')+'</div>'+
+        '<div class="overnote">'+((target!=null&&pos.stitch>target)?('+'+(pos.stitch-target)+' over'):'')+'</div>'+
+        (target!=null?('<div class="bar"><i style="width:'+Math.min(100,Math.round(pos.stitch/target*100))+'%"></i></div>'):'')+
+        (plan.totalRounds?('<div class="bar thin"><i style="width:'+Math.min(100,Math.round((pos.roundIdx)/plan.totalRounds*100))+'%"></i></div>'):'')+
+        '<div class="hint"><button class="btn small ghost" data-action="set-target">'+(target!=null?('Target: '+target+(r.targetIsOverride?' (yours)':(r.aiTarget!=null?' (AI)':''))+' — change'):'Set a stitch target')+'</button></div>'+
+      '</div>'+
+      '<div class="controls">'+
+        '<div class="crow"><button class="cbtn minor" data-action="c-minus">−1</button><button class="cbtn minor" data-action="c-undo">↩ Undo</button></div>'+
+        '<div class="crow"><button class="cbtn big" data-action="c-plus">+1&nbsp;&nbsp;STITCH</button></div>'+
+        '<div class="crow"><button class="cbtn prev" data-action="c-prev">‹ Prev</button><button class="cbtn next'+((target!=null&&pos.stitch>=target)?' pulse':'')+'" data-action="c-next">'+(beyond?'Next row':'Next round ✓')+'</button></div>'+
+      '</div>'+
+      (beyond?'<div class="banner info" style="margin-top:10px">🎉 You\'re past the last parsed round. Keep counting freely, or <button class="btn small ghost" data-action="start-over">start over</button>.</div>':'');
+    $('view-count').innerHTML=html;
+  }
+
+  function debounced(){ var now=Date.now(); if(now-lastTap<TAP_DEBOUNCE_MS) return false; lastTap=now; return true; }
+  function doAction(action){
+    var p=St.getPattern(currentId); if(!p) return;
+    var r=En.applyAction(p.position, action);
+    if(r.inverse){ undoStack.push(r.inverse); if(undoStack.length>UNDO_DEPTH) undoStack.shift(); }
+    St.setPosition(currentId, r.position);
+    renderCount();
+    var num=$('count-num'); if(num){ num.classList.remove('bump'); void num.offsetWidth; num.classList.add('bump'); }
+  }
+  function tapPlus(){ if(!debounced()) return; doAction({type:'stitch+'}); }
+  function tapMinus(){ if(!debounced()) return; doAction({type:'stitch-'}); }
+  function tapUndo(){
+    if(!debounced()) return;
+    var p=St.getPattern(currentId); if(!p) return;
+    var r=En.undoLast(p.position, undoStack);
+    undoStack=r.stack; St.setPosition(currentId, r.position); renderCount();
+  }
+  function tapNext(){
+    if(!debounced()) return;
+    var p=St.getPattern(currentId); if(!p) return;
+    var plan=En.getPlan(p), r=plan.roundFor(p.position.roundIdx);
+    var go=function(){ doAction({type:'row+'}); };
+    if(r.target!=null && p.position.stitch<r.target){
+      confirmDialog('Only '+p.position.stitch+' of '+r.target+' stitches — finish this round anyway?',{okText:'Advance'}).then(function(ok){ if(ok) go(); });
+    } else go();
+  }
+  function tapPrev(){
+    if(!debounced()) return;
+    var p=St.getPattern(currentId); if(!p||p.position.roundIdx===0) return;
+    confirmDialog('Go back to the previous round? This round\'s count resets.',{okText:'Go back'}).then(function(ok){ if(ok) doAction({type:'row-'}); });
+  }
+  function setTarget(){
+    var p=St.getPattern(currentId); if(!p) return;
+    var plan=En.getPlan(p), idx=p.position.roundIdx, r=plan.roundFor(idx);
+    var msg = r.aiTarget!=null ? 'Stitch target for this round (the AI expected '+r.aiTarget+' — trust your hands):' : 'Stitch target for this round:';
+    numberDialog(msg, r.target).then(function(out){
+      if(out.cancel) return;
+      if(out.clear) St.setManualTarget(currentId, idx, null);
+      else St.setManualTarget(currentId, idx, out.set);
+      renderCount();
+    });
+  }
+  function startOver(){
+    confirmDialog('Start this pattern over from round 1, stitch 0?',{okText:'Start over',danger:true}).then(function(ok){
+      if(!ok) return; undoStack=[]; St.setPosition(currentId,{roundIdx:0,stitch:0}); renderCount();
+    });
+  }
+
+  /* ---- explain (cache -> live -> deterministic fallback) ---- */
+  function openExplain(){
+    var p=St.getPattern(currentId); if(!p||!p.parsed) return;
+    var plan=En.getPlan(p), idx=p.position.roundIdx, r=plan.roundFor(idx);
+    if(!r.instruction) return;
+    var hash=En.hashInstruction(r.instruction);
+    var cached=p.explanations[idx];
+    var body='<div class="where" style="font-size:12px;font-weight:800;color:var(--accent);text-transform:uppercase">'+esc(r.label)+'</div>'+
+      '<div style="font-size:14px;color:var(--muted);margin:4px 0 10px">'+esc(r.instruction)+'</div>'+
+      '<div id="explain-out" style="font-size:15px;line-height:1.5;white-space:pre-wrap"></div>'+
+      '<div class="row" style="margin-top:12px"><button class="btn small" data-action="reexplain" style="display:none" id="reexplain-btn">Re-ask the AI</button><span class="spacer"></span><button class="btn ghost small" data-action="closemodal">Close</button></div>';
+    openModal('What does this row mean?', body);
+    var out=$('explain-out');
+    var showFallback=function(prefixError){
+      var fb=En.localExplain(r.instruction, En.buildGlossary(p), r);
+      out.textContent=(prefixError? prefixError+'\n\n' : '')+fb;
+    };
+    if(cached && cached.hash===hash){
+      out.textContent=cached.text+'\n\n(saved — works offline)';
+      if(Net.hasProxy()){ var rb=$('reexplain-btn'); if(rb) rb.style.display=''; }
+      return;
+    }
+    if(!Net.hasProxy()){ showFallback(); return; }
+    out.textContent='Asking the AI…';
+    Net.requestExplain(r.instruction, Net.buildExplainContext(p, plan, idx)).then(function(text){
+      var t=String(text||'').slice(0,600);
+      St.cacheExplanation(currentId, idx, hash, t);
+      if($('explain-out')){ $('explain-out').textContent=t; var rb=$('reexplain-btn'); if(rb) rb.style.display=''; }
+    }).catch(function(e){ if($('explain-out')) showFallback('('+(e&&e.message||'The AI is unreachable right now.')+')'); });
+  }
+  function reExplain(){
+    var p=St.getPattern(currentId); if(!p) return;
+    delete p.explanations[p.position.roundIdx]; St.saveStore();
+    closeModal(); openExplain();
+  }
+
+  /* ================= PATTERN ================= */
+  var WEIGHT_NAMES={0:'Lace',1:'Super Fine',2:'Fine',3:'Light',4:'Medium / Worsted',5:'Bulky',6:'Super Bulky',7:'Jumbo'};
+  function renderPattern(){
+    var p=St.getPattern(currentId); if(!p){ switchView('library'); return; }
+    var html='';
+    if(p.parsed){
+      var warnings=(p.parsed.warnings||[]).concat([]);
+      if(warnings.length || (p.parseProblems&&p.parseProblems.length)){
+        html+='<div class="card"><h2>🤖 AI notes</h2>'+
+          warnings.map(function(w){ return '<div class="banner warn" style="margin-bottom:6px">'+esc(w)+'</div>'; }).join('')+
+          (p.parseProblems||[]).map(function(w){ return '<div class="hint">'+esc(w)+'</div>'; }).join('')+
+        '</div>';
+      }
+      var m=p.parsed.materials||{};
+      if(m.yarnWeight!=null||m.hookMm!=null||m.estYards!=null||m.notes){
+        html+='<div class="card"><h2>Materials</h2><div style="font-size:14px">'+
+          (m.yarnWeight!=null?('Yarn weight: <b>'+m.yarnWeight+' — '+esc(WEIGHT_NAMES[m.yarnWeight]||'')+'</b><br>'):'')+
+          (m.hookMm!=null?('Hook: <b>'+m.hookMm+' mm</b><br>'):'')+
+          (m.estYards!=null?('Estimated yarn: <b>~'+m.estYards+' yds</b><br>'):'')+
+          (m.notes?('<span class="hint">'+esc(m.notes)+'</span>'):'')+
+        '</div></div>';
+      }
+      if(p.parsed.terminology==='UK') html+='<div class="banner warn">⚠ UK terminology: UK dc = US sc · UK tr = US dc · UK htr = US hdc · UK dtr = US tr · UK “miss” = US “skip”.</div>';
+      else if(p.parsed.terminology==='unknown') html+='<div class="hint" style="margin-bottom:10px">The AI couldn\'t tell if this pattern uses US or UK terms.</div>';
+    } else {
+      html+='<div class="hint" style="margin:4px 0 10px">This pattern hasn\'t been parsed — terms below assume US conventions.</div>';
+    }
+    var gl=En.buildGlossary(p);
+    if(gl.length){
+      html+='<div class="card"><h2>Glossary</h2>'+gl.map(function(g){
+        return '<div class="gl"><span class="a">'+esc(g.abbr)+'</span><span class="m">'+esc(g.meaning)+
+          (g.differs?' <span class="src" style="color:var(--warn)">differs from the usual meaning</span>':'')+
+          (g.uk?('<br><span class="hint">'+esc(g.uk)+'</span>'):'')+
+          '<span class="src">'+esc(g.src||'built-in')+'</span></span></div>';
+      }).join('')+'</div>';
+    }
+    html+='<div class="card"><h2>Pattern text</h2><div style="font-size:13px;white-space:pre-wrap;max-height:50vh;overflow:auto;-webkit-overflow-scrolling:touch">'+esc(p.text)+'</div></div>';
+    $('view-pattern').innerHTML=html;
+  }
+
+  /* ================= LIBRARY ================= */
+  function resumeLine(p){
+    var plan=En.getPlan(p), pos=p.position, r=plan.roundFor(pos.roundIdx);
+    var lbl=plan.mode==='parsed'?r.label:('Row '+(pos.roundIdx+1));
+    return lbl+' · '+pos.stitch+(r.target!=null?('/'+r.target):'')+' sts';
+  }
+  function renderLibrary(){
+    var s=St.loadStore();
+    var pats=s.patterns.slice().sort(function(a,b){ return (b.updatedAt||'').localeCompare(a.updatedAt||''); });
+    var html='<div class="row" style="margin-bottom:10px"><button class="btn primary" data-action="new-pattern">+ New pattern</button>'+
+      (pats.length===0?'<button class="btn" data-action="load-example">Try the example</button>':'')+'</div>';
+    if(!pats.length){
+      html+='<div class="card"><h2>No patterns yet</h2><p class="cap">Paste a written pattern and count along — or load the example to see how it works (no internet needed).</p></div>';
+    }
+    pats.forEach(function(p){
+      html+='<div class="pcard" data-open="'+esc(p.id)+'"><span class="mid"><span class="nm">'+esc(p.name)+'</span>'+
+        '<span class="badge '+(p.parsed?'parsed':'')+'">'+(p.parsed?'Parsed':'Manual')+'</span>'+(p.demo?'<span class="badge demo">DEMO</span>':'')+
+        '<br><span class="meta">'+esc(resumeLine(p))+'</span></span>'+
+        '<button class="btn small ghost" data-menu="'+esc(p.id)+'">⋯</button></div>';
+    });
+    $('view-library').innerHTML=html;
+  }
+  function openPatternMenu(id){
+    var p=St.getPattern(id); if(!p) return;
+    openModal(p.name,
+      '<div class="row">'+
+      '<button class="btn" data-action="pm-rename" data-id="'+esc(id)+'">Rename</button>'+
+      (Net.hasProxy()?('<button class="btn" data-action="pm-reparse" data-id="'+esc(id)+'">'+(p.parsed?'Re-parse with AI':'Parse with AI')+'</button>'):'')+
+      '<button class="btn danger" data-action="pm-delete" data-id="'+esc(id)+'">Delete</button>'+
+      '<span class="spacer"></span><button class="btn ghost" data-action="closemodal">Close</button></div>');
+  }
+  function newPattern(){
+    openModal('New pattern',
+      '<div class="field"><label>Name</label><input type="text" id="np-name" placeholder="e.g. Bee amigurumi"></div>'+
+      '<div class="field"><label>Pattern text (paste it here)</label><textarea id="np-text" placeholder="Paste the written pattern…"></textarea>'+
+      '<div class="hint">Up to '+Net.MAX_PATTERN_CHARS.toLocaleString()+' characters. Photos/PDFs aren\'t supported — paste the text.</div></div>'+
+      '<div class="row"><button class="btn primary" data-action="np-save">Save &amp; count</button>'+
+      (Net.hasProxy()?'<button class="btn" data-action="np-parse">Save &amp; parse with AI</button>':'')+
+      '<span class="spacer"></span><button class="btn ghost" data-action="closemodal">Cancel</button></div>');
+  }
+  function saveNew(parse){
+    var name=($('np-name')||{}).value||'', text=($('np-text')||{}).value||'';
+    if(!text.trim()){ toast('Paste the pattern text first.'); return; }
+    if(text.length>Net.MAX_PATTERN_CHARS){ toast('Too long — split the pattern into parts under '+Net.MAX_PATTERN_CHARS.toLocaleString()+' characters.'); return; }
+    var p=St.createPattern(name||'Untitled pattern', text, false);
+    var s=St.loadStore(); s.settings.lastOpenedId=p.id; St.saveStore();
+    currentId=p.id; undoStack=[];
+    closeModal();
+    if(parse) runParse(p.id, true);
+    else { switchView('count'); toast('Saved — happy counting.'); }
+  }
+  function runParse(id, thenCount){
+    var p=St.getPattern(id); if(!p) return;
+    toast('Asking the AI to read the pattern…');
+    Net.requestParse(p.text).then(function(raw){
+      var v=En.validateParsed(raw);
+      if(!v.ok){
+        p.lastParseError=(v.problems[0]||'The AI could not read this pattern.'); St.saveStore();
+        confirmDialog('The AI couldn\'t read this pattern — you can still count by hand.',{okText:'OK',cancelText:'Close'}).then(function(){});
+        if(thenCount) switchView('count');
+        return;
+      }
+      St.hydrateParse(id, v.parsed, v.problems);
+      if(v.parsed.warnings&&v.parsed.warnings.length) toast('Parsed ✓ — note: '+v.parsed.warnings[0]);
+      else toast('Parsed ✓ — rounds and targets are ready.');
+      if(currentId===id||thenCount){ currentId=id; switchView('count'); }
+      else renderLibrary();
+    }).catch(function(e){
+      var pp=St.getPattern(id); if(pp){ pp.lastParseError=(e&&e.message)||'error'; St.saveStore(); }
+      toast((e&&e.message)||'The AI is unreachable — the pattern stays manual.');
+      if(thenCount) switchView('count');
+    });
+  }
+
+  /* ================= SETTINGS ================= */
+  function renderSettings(){
+    var s=St.loadStore();
+    var used=0; try{ used=(localStorage.getItem(St.KEY)||'').length; }catch(_){}
+    $('view-settings').innerHTML=
+      '<div class="card"><h2>AI helper <span class="hint" style="display:inline">(optional)</span></h2>'+
+        '<p class="cap">Reads a pasted pattern into rounds + stitch targets, and explains rows in plain English. Needs the little helper server — see <code>companion/proxy/README.md</code>. Everything else works without it.</p>'+
+        '<div class="field"><label>Helper address</label><input type="url" id="set-proxy" value="'+esc(s.settings.proxyUrl||'')+'" placeholder="'+(Net.proxyUrl()?'built-in helper is used when blank':'https://…workers.dev (none set up yet)')+'"></div>'+
+        '<div class="row"><button class="btn" data-action="save-proxy">Save</button><button class="btn ghost" data-action="test-proxy">Test connection</button></div>'+
+        '<div id="proxy-status" class="hint"></div></div>'+
+      '<div class="card"><h2>Try it &amp; check it</h2>'+
+        '<div class="row"><button class="btn" data-action="load-example">Load example pattern</button>'+
+        '<button class="btn" data-action="selftest">Run self-test</button></div><div id="selftest-out"></div></div>'+
+      '<div class="card"><h2>Backup</h2><p class="cap">Patterns and your place in them live only on this phone. Copy a backup now and then.</p>'+
+        '<div class="row"><button class="btn" data-action="backup">Copy / share backup</button><button class="btn" data-action="restore">Restore from text</button></div>'+
+        '<div class="hint">Storage used: ~'+(used/1024).toFixed(1)+' KB</div></div>'+
+      '<div class="card"><h2>📱 Keep the screen awake</h2><p class="cap" style="margin-bottom:0">Older iPhones may dim mid-row: Settings → Display &amp; Brightness → <b>Auto-Lock → Never</b> while you stitch (set it back after). Every tap is saved instantly either way.</p></div>'+
+      '<div class="assumptions"><b>Things Cricket should double-check:</b> the glossary meanings (US conventions) and the UK↔US table; the example pattern\'s stitch counts (written by a non-crocheter!); that stitch counts from the AI are treated as hints — the app never advances a round on its own (tell us if you\'d rather it did); targets cap at 999; the 150 ms anti-double-tap window.</div>';
+  }
+  function saveProxy(){
+    var u=(($('set-proxy')||{}).value||'').trim();
+    if(u && u.toLowerCase()!=='off' && !/^https:\/\//.test(u)){ toast('Paste an https:// address, leave blank, or type "off".'); return; }
+    var s=St.loadStore(); s.settings.proxyUrl=u; St.saveStore();
+    toast(u.toLowerCase()==='off'?'AI helper turned off.':(u?'Saved.':'Using the default.'));
+    renderSettings();
+  }
+  function testProxy(){ var el=$('proxy-status'); el.textContent='Testing…'; Net.testConnection().then(function(r){ el.textContent=r.msg; }); }
+
+  /* ---- backup / restore (share-ladder; no <a download> reliance) ---- */
+  function doBackup(){
+    var s=St.loadStore();
+    var text=JSON.stringify({format:'crochetToolkit.companion.backup', schemaVersion:1, exportedAt:St.nowIso(), patterns:s.patterns});
+    if(navigator.share){ navigator.share({title:'Pattern Companion backup', text:text}).catch(function(){ copyText(text); }); }
+    else copyText(text);
+  }
+  function copyText(text){
+    if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(text).then(function(){toast('Backup copied.');}).catch(function(){ showText(text); }); }
+    else showText(text);
+  }
+  function showText(text){ openModal('Copy this backup','<textarea readonly style="min-height:160px;font-size:11px" id="bk-ta">'+esc(text)+'</textarea><div class="row" style="margin-top:8px"><span class="spacer"></span><button class="btn ghost" data-action="closemodal">Done</button></div>'); setTimeout(function(){ var e=$('bk-ta'); if(e){e.focus();e.select();} },50); }
+  function doRestore(){
+    openModal('Restore from backup','<div class="field"><label>Paste backup text</label><textarea id="rs-ta"></textarea></div><div class="row"><button class="btn primary" data-action="restore-go">Restore (merge)</button><span class="spacer"></span><button class="btn ghost" data-action="closemodal">Cancel</button></div>');
+  }
+  function runRestore(){
+    var t=(($('rs-ta')||{}).value||'');
+    var added=0, updated=0;
+    try{
+      var o=JSON.parse(t);
+      if(!o || o.format!=='crochetToolkit.companion.backup' || !Array.isArray(o.patterns)) throw new Error('not a backup');
+      var s=St.loadStore();
+      o.patterns.forEach(function(rp){
+        if(!rp || typeof rp!=='object' || typeof rp.text!=='string') return;
+        var existing=null; for(var i=0;i<s.patterns.length;i++) if(s.patterns[i].id===rp.id) existing=i;
+        var clean={ id:(typeof rp.id==='string'&&rp.id)?rp.id:St.uid(), name:String(rp.name||'Restored').slice(0,80), text:String(rp.text).slice(0,Net.MAX_PATTERN_CHARS),
+          demo:!!rp.demo, parsed:null, manualTargets:(rp.manualTargets&&typeof rp.manualTargets==='object')?rp.manualTargets:{},
+          position:(rp.position&&typeof rp.position==='object')?{roundIdx:Math.max(0,parseInt(rp.position.roundIdx,10)||0),stitch:Math.max(0,parseInt(rp.position.stitch,10)||0)}:{roundIdx:0,stitch:0},
+          explanations:(rp.explanations&&typeof rp.explanations==='object')?rp.explanations:{}, flags:{ukBannerDismissed:false},
+          lastParseError:null, createdAt:rp.createdAt||St.nowIso(), updatedAt:St.nowIso() };
+        if(rp.parsed){ var v=En.validateParsed(rp.parsed); if(v.ok) clean.parsed=v.parsed; }
+        if(existing!=null){ s.patterns[existing]=clean; updated++; } else { s.patterns.push(clean); added++; }
+      });
+      St.saveStore(); closeModal(); renderLibrary(); switchView('library');
+      toast('Restored: '+added+' added, '+updated+' updated.');
+    }catch(_){ toast('That doesn\'t look like a Companion backup — nothing was changed.'); }
+  }
+
+  /* ---- baked example: full parsed experience with zero network ---- */
+  // FLAGGED (rule 9): written + hand-checked by a non-crocheter. Cricket: do the counts read right?
+  var EXAMPLE_PATTERN='Little Amigurumi Ball (US terms)\n\nMaterials: worsted (#4) yarn, 3.5 mm hook, stuffing.\n\nR1: Magic ring, 6 sc in ring. (6)\nR2: Inc in each st around. (12)\nR3: (Sc 1, inc) x 6. (18)\nR4: (Sc 2, inc) x 6. (24)\nR5: Sc in each st around. (24)\nR6: Sc in each st around. (24)\nR7: (Sc 2, dec) x 6. (18)\nR8: (Sc 1, dec) x 6. (12)\nR9: Dec x 6 — stuff the ball firmly, fasten off, weave the tail through the last 6 sts and pull closed. (6)';
+  var EXAMPLE_PARSED={ title:'Little Amigurumi Ball', terminology:'US',
+    abbreviations:[{abbr:'sc',meaning:'single crochet'},{abbr:'inc',meaning:'increase — 2 sc in the same stitch'},{abbr:'dec',meaning:'decrease — sc 2 stitches together'},{abbr:'st',meaning:'stitch'}],
+    materials:{yarnWeight:4,hookMm:3.5,estYards:null,notes:'plus stuffing'},
+    rounds:[
+      {index:0,label:'R1',instruction:'Magic ring, 6 sc in ring.',stitchCount:6,note:null},
+      {index:1,label:'R2',instruction:'Inc in each st around.',stitchCount:12,note:null},
+      {index:2,label:'R3',instruction:'(Sc 1, inc) x 6.',stitchCount:18,note:null},
+      {index:3,label:'R4',instruction:'(Sc 2, inc) x 6.',stitchCount:24,note:null},
+      {index:4,label:'R5',instruction:'Sc in each st around.',stitchCount:24,note:null},
+      {index:5,label:'R6',instruction:'Sc in each st around.',stitchCount:24,note:null},
+      {index:6,label:'R7',instruction:'(Sc 2, dec) x 6.',stitchCount:18,note:null},
+      {index:7,label:'R8',instruction:'(Sc 1, dec) x 6.',stitchCount:12,note:null},
+      {index:8,label:'R9',instruction:'Dec x 6 — stuff the ball firmly, fasten off, weave the tail through the last 6 sts and pull closed.',stitchCount:6,note:'Last round — stuff before closing.'}
+    ], warnings:[] };
+  var EXAMPLE_EXPLANATIONS={
+    0:'Start with a magic ring: loop the yarn around your fingers, insert the hook, and work 6 single crochets into that loop. Then pull the yarn tail to close the ring tight. You should have 6 stitches — place a marker in the first one so you know where the round starts.',
+    2:'Work this in pairs, six times: make 1 single crochet in the next stitch, then an increase (2 single crochets in the one stitch after it). Each pair turns 2 stitches into 3, so after six repeats your 12 stitches become 18. Count when you finish the round.',
+    6:'Now the ball starts shrinking. Six times: 1 single crochet in each of the next 2 stitches, then a decrease (join the next 2 stitches into 1). Each repeat turns 4 stitches into 3, so 24 becomes 18. Decreases can feel tight — that\'s normal.'
+  };
+  function loadExample(){
+    var s=St.loadStore();
+    var existing=null;
+    for(var i=0;i<s.patterns.length;i++) if(s.patterns[i].demo) existing=s.patterns[i];
+    if(existing){ currentId=existing.id; s.settings.lastOpenedId=existing.id; St.saveStore(); switchView('count'); toast('Example reopened.'); return; }
+    var v=En.validateParsed(EXAMPLE_PARSED);            // the example must pass the real validator
+    var p=St.createPattern('Example: Amigurumi Ball', EXAMPLE_PATTERN, true);
+    if(v.ok){
+      St.hydrateParse(p.id, v.parsed, []);
+      for(var k in EXAMPLE_EXPLANATIONS){ St.cacheExplanation(p.id, parseInt(k,10), En.hashInstruction(v.parsed.rounds[k].instruction), EXAMPLE_EXPLANATIONS[k]); }
+    }
+    s=St.loadStore(); s.settings.lastOpenedId=p.id; St.saveStore();
+    currentId=p.id; undoStack=[];
+    switchView('count'); toast('Example loaded — tap +1 STITCH to try it.');
+  }
+
+  /* ================= SELF-TEST ================= */
+  function runSelfTest(){
+    var out=$('selftest-out'); out.innerHTML='<div class="hint" style="margin-top:8px">Running…</div>';
+    var L=[]; function add(n,p){ L.push({n:n,p:!!p}); }
+    var V=En.validateParsed;
+    // 1 — garbage never crashes
+    var g=[null,'string',{},{rounds:'x'},{rounds:[]},{rounds:[{}]},{rounds:[{instruction:42}]}];
+    var crashed=false, allRejected=true;
+    g.forEach(function(x){ try{ var r=V(x); if(r.ok) allRejected=false; }catch(_){ crashed=true; } });
+    add('Validator survives garbage and rejects it', !crashed && allRejected);
+    var weird=V({rounds:[{instruction:'sc around',stitchCount:-3},{instruction:'inc around',stitchCount:99999},{instruction:'good',stitchCount:12}],terminology:'Klingon',abbreviations:[null,42,{abbr:1}],materials:'lol'});
+    add('Bad counts become "no target", junk fields dropped', weird.ok && weird.parsed.rounds.length===3 && weird.parsed.rounds[0].stitchCount===null && weird.parsed.rounds[1].stitchCount===null && weird.parsed.rounds[2].stitchCount===12 && weird.parsed.terminology==='unknown' && weird.parsed.abbreviations.length===0);
+    // 2 — example passes the real validator untouched
+    var ev=V(EXAMPLE_PARSED);
+    add('Example pattern passes the validator intact', ev.ok && ev.parsed.rounds.length===9 && ev.parsed.rounds[3].stitchCount===24);
+    // 3 — salvage
+    var sal=V({rounds:[{instruction:'keep me',stitchCount:6},{label:'no instruction'},{instruction:'also keep',stitchCount:'x'}]});
+    add('Salvage keeps good rounds, resequences indices', sal.ok && sal.parsed.rounds.length===2 && sal.parsed.rounds[1].index===1);
+    // 4 — counter math: no auto-advance
+    var pos={roundIdx:0,stitch:0}, st=[];
+    for(var i=0;i<24;i++){ var r1=En.applyAction(pos,{type:'stitch+'}); pos=r1.position; st.push(r1.inverse); }
+    add('24 taps on a 24-target round NEVER auto-advances', pos.roundIdx===0 && pos.stitch===24);
+    var r2=En.applyAction(pos,{type:'stitch+'}); pos=r2.position; st.push(r2.inverse);
+    add('Counting past the target is allowed', pos.stitch===25);
+    var r3=En.applyAction(pos,{type:'row+'}); pos=r3.position; st.push(r3.inverse);
+    add('Next round resets stitch to 0', pos.roundIdx===1 && pos.stitch===0);
+    // 5 — undo incl. un-advance
+    var u=En.undoLast(pos, st); pos=u.position;
+    add('Undo after advancing restores the exact stitch (25)', pos.roundIdx===0 && pos.stitch===25);
+    var m={roundIdx:0,stitch:0};
+    var mm=En.applyAction(m,{type:'stitch-'});
+    add('−1 at zero clamps at zero', mm.position.stitch===0);
+    // plan override
+    var fakeP={parsed:{rounds:[{index:0,label:'R1',instruction:'x',stitchCount:24,note:null}]},manualTargets:{0:22}};
+    add('Your manual target beats the AI\'s', En.getPlan(fakeP).roundFor(0).target===22);
+    // 6 — storage round-trip + stash untouched
+    var stashBefore=null; try{ stashBefore=localStorage.getItem('crochetToolkit.stash.v1'); }catch(_){}
+    var s=St.loadStore(); var snapshot=JSON.stringify(s);
+    St.saveStore(); var reread=null; try{ reread=localStorage.getItem(St.KEY); }catch(_){}
+    add('Store save/load round-trips', !!reread && JSON.stringify(JSON.parse(reread).patterns)===JSON.stringify(s.patterns));
+    var stashAfter=null; try{ stashAfter=localStorage.getItem('crochetToolkit.stash.v1'); }catch(_){}
+    add('The yarn stash is never touched', stashBefore===stashAfter);
+    add('Snapshot unchanged by the test itself', JSON.stringify(St.loadStore())===snapshot);
+    // 7 — glossary + cache hash
+    var found=En.scanAbbreviations('R1: Magic ring, 6 sc in ring. inc and dec later. I wore a scarf.');
+    var hasSc=found.some(function(x){return x.abbr==='sc';}), hasInc=found.some(function(x){return x.abbr==='inc';});
+    var falseScarf=found.some(function(x){return x.abbr==='sc';}) && !/(^|[^a-z])sc($|[^a-z])/.test(' i wore a scarf ');
+    add('Glossary scan finds sc/inc, ignores "scarf"', hasSc && hasInc && falseScarf!==false);
+    add('Explain cache key changes when the instruction changes', En.hashInstruction('sc around')!==En.hashInstruction('dc around') && En.hashInstruction(' SC  around ')===En.hashInstruction('sc around'));
+    // 8 — net guards + never-worse
+    var fb=En.localExplain('(Sc 1, inc) x 6.', En.BUILTIN_GLOSSARY.map(function(g){return {abbr:g.abbr,meaning:g.meaning};}), {target:18,note:null});
+    add('Offline explanation always produces text', typeof fb==='string' && fb.length>40);
+    var allPass=L.every(function(x){return x.p;});
+    out.innerHTML=L.map(function(x){ return '<div class="testline">'+(x.p?'<span class="ok">✓ PASS</span>':'<span class="no">✗ FAIL</span>')+' '+esc(x.n)+'</div>'; }).join('')+
+      '<div style="margin-top:8px;font-weight:800;color:'+(allPass?'var(--good)':'var(--bad)')+'">'+(allPass?'All checks passed ✓':'Some checks FAILED ✗')+'</div>';
+  }
+
+  /* ---- wake lock (guarded; no-op on iOS < 16.4) ---- */
+  function requestWakeLock(){
+    try{ if('wakeLock' in navigator && navigator.wakeLock.request){ navigator.wakeLock.request('screen').then(function(wl){ wakeLock=wl; }).catch(function(){}); } }catch(_){}
+  }
+  document.addEventListener('visibilitychange', function(){ if(document.visibilityState==='visible') requestWakeLock(); });
+
+  /* ================= EVENTS ================= */
+  document.addEventListener('click', function(e){
+    var nv=e.target.closest('nav.seg button'); if(nv){ switchView(nv.getAttribute('data-view')); return; }
+    var open=e.target.closest('[data-open]');
+    if(open && !e.target.closest('[data-menu]')){
+      currentId=open.getAttribute('data-open'); undoStack=[];
+      var s=St.loadStore(); s.settings.lastOpenedId=currentId; St.saveStore();
+      switchView('count'); return;
+    }
+    var menu=e.target.closest('[data-menu]'); if(menu){ openPatternMenu(menu.getAttribute('data-menu')); return; }
+    var el=e.target.closest('[data-action]'); if(!el) return;
+    var a=el.getAttribute('data-action'), id=el.getAttribute('data-id');
+    switch(a){
+      case 'gohome': window.location.href='../'; break;
+      case 'closemodal': closeModal(); break;
+      case 'c-plus': tapPlus(); break;
+      case 'c-minus': tapMinus(); break;
+      case 'c-undo': tapUndo(); break;
+      case 'c-next': tapNext(); break;
+      case 'c-prev': tapPrev(); break;
+      case 'set-target': setTarget(); break;
+      case 'start-over': startOver(); break;
+      case 'explain': openExplain(); break;
+      case 'reexplain': reExplain(); break;
+      case 'dismiss-uk': (function(){ var p=St.getPattern(currentId); if(p){ p.flags.ukBannerDismissed=true; St.saveStore(); renderCount(); } })(); break;
+      case 'new-pattern': newPattern(); break;
+      case 'np-save': saveNew(false); break;
+      case 'np-parse': saveNew(true); break;
+      case 'pm-rename': closeModal(); (function(pid){ var p=St.getPattern(pid); promptDialog('Rename pattern:', p?p.name:'').then(function(v){ if(v!=null&&v.trim()){ St.renamePattern(pid, v.trim()); renderLibrary(); } }); })(id); break;
+      case 'pm-reparse': closeModal(); (function(pid){ var p=St.getPattern(pid);
+          if(p&&p.parsed){ confirmDialog('Re-parse this pattern? Your place is kept by round number, but saved explanations for changed rounds clear.',{okText:'Re-parse'}).then(function(ok){ if(ok) runParse(pid,false); }); }
+          else runParse(pid,false); })(id); break;
+      case 'pm-delete': closeModal(); confirmDialog('Delete this pattern and your place in it?',{okText:'Delete',danger:true}).then(function(ok){ if(ok){ St.deletePattern(id); if(currentId===id) currentId=null; renderLibrary(); } }); break;
+      case 'load-example': loadExample(); break;
+      case 'save-proxy': saveProxy(); break;
+      case 'test-proxy': testProxy(); break;
+      case 'selftest': runSelfTest(); break;
+      case 'backup': doBackup(); break;
+      case 'restore': doRestore(); break;
+      case 'restore-go': runRestore(); break;
+    }
+  });
+  document.addEventListener('keydown', function(e){ if(e.key==='Escape'){ if(!$('modal').classList.contains('hidden')) closeModal(); } });
+  window.addEventListener('companion:quota', function(){ toast('Storage is full — your count still works, but changes may not save. Make a backup.'); });
+
+  /* ================= BOOT ================= */
+  var store=St.loadStore();
+  if(store._recoveredFromCorruption){
+    delete store._recoveredFromCorruption;
+    confirmDialog('Saved data looked damaged, so the app started fresh. A backup copy of the old data was kept.',{okText:'OK',cancelText:'Close'}).then(function(){});
+  }
+  if(store.settings.lastOpenedId && St.getPattern(store.settings.lastOpenedId)){
+    currentId=store.settings.lastOpenedId;
+    switchView('count');           // resume straight into counting
+  } else {
+    switchView('library');
+  }
+  requestWakeLock();
+  if('serviceWorker' in navigator && location.protocol.indexOf('http')===0){ try{ navigator.serviceWorker.register('../sw.js').catch(function(){}); }catch(_){} }
+  try{ if(navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(function(){}); }catch(_){}
+
+  // expose for the self-test + verification
+  window.CompanionUI={ switchView:switchView, loadExample:loadExample, runSelfTest:runSelfTest, getCurrentId:function(){return currentId;}, _setCurrent:function(id){ currentId=id; } };
+})();
+</script>
+</body>
+</html>
