@@ -1,0 +1,6 @@
+# Never commit the real config or any secrets.
+wrangler.toml
+.dev.vars
+*.dev.vars
+.wrangler/
+node_modules/

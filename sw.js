@@ -2,13 +2,14 @@
    Registered (as ../sw.js) from the hub AND from every tool page, so a single install
    caches the hub + all three tools and the whole toolkit opens offline.
    Strategy: network-first (updates arrive when online), cache fallback offline. */
-var CACHE = 'crochet-toolkit-v1';
+var CACHE = 'crochet-toolkit-v2';
 var ASSETS = [
   './', 'index.html', 'manifest.webmanifest',
   'icons/icon-180.png', 'icons/icon-192.png', 'icons/icon-512.png',
   'stash/', 'stash/index.html', 'stash/icons/icon-192.png',
   'chart/', 'chart/index.html', 'chart/icons/icon-192.png',
-  'substitute/', 'substitute/index.html', 'substitute/icons/icon-192.png'
+  'substitute/', 'substitute/index.html', 'substitute/icons/icon-192.png',
+  'companion/', 'companion/index.html', 'companion/icons/icon-192.png'
 ];
 
 self.addEventListener('install', function(e){
